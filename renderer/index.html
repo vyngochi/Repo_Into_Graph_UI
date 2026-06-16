@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src *;" />
+  <title>RepoGraph — Code Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="lib/prism-theme.min.css" />
+</head>
+
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <circle cx="6" cy="6" r="4" fill="#6366f1" />
+          <circle cx="22" cy="6" r="4" fill="#8b5cf6" />
+          <circle cx="14" cy="22" r="4" fill="#06b6d4" />
+          <line x1="6" y1="6" x2="22" y2="6" stroke="#6366f1" stroke-width="1.5" opacity="0.6" />
+          <line x1="6" y1="6" x2="14" y2="22" stroke="#8b5cf6" stroke-width="1.5" opacity="0.6" />
+          <line x1="22" y1="6" x2="14" y2="22" stroke="#06b6d4" stroke-width="1.5" opacity="0.6" />
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">RepoGraph</span>
+        <span class="brand-version">v1.0</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-page="analyze" id="nav-analyze">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+        </svg>
+        <span>Phân tích</span>
+      </button>
+      <button class="nav-item" data-page="features" id="nav-features">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd"
+            d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z"
+            clip-rule="evenodd" />
+        </svg>
+        <span>Features</span>
+      </button>
+      <button class="nav-item" data-page="codeflow" id="nav-codeflow">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+        </svg>
+        <span>Code Flow</span>
+      </button>
+      <button class="nav-item" data-page="bizflow" id="nav-bizflow">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
+          <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
+        </svg>
+        <span>Business Flow</span>
+      </button>
+      <button class="nav-item" data-page="graph" id="nav-graph">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            d="M5 3a2 2 0 100 4 2 2 0 000-4zM5 15a2 2 0 100 4 2 2 0 000-4zM15 3a2 2 0 100 4 2 2 0 000-4zm0 12a2 2 0 100 4 2 2 0 000-4zm-5-8a2 2 0 100 4 2 2 0 000-4z" />
+        </svg>
+        <span>Graph</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="server-status">
+        <div class="status-dot" id="statusDot"></div>
+        <span class="status-label" id="statusLabel">Chưa kết nối</span>
+      </div>
+      <button class="btn-settings" id="btnSettings" title="Cài đặt Server">
+        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+          <path fill-rule="evenodd"
+            d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+            clip-rule="evenodd" />
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Header -->
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <h1 class="page-title" id="pageTitle">Phân tích Repository</h1>
+        <p class="page-subtitle" id="pageSubtitle">Phân tích static code và trích xuất đồ thị lời gọi</p>
+      </div>
+      <div class="top-bar-right">
+        <div class="server-url-badge" id="serverBadge">
+          <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+            <path
+              d="M1.5 2.5A2.5 2.5 0 014 0h8a2.5 2.5 0 012.5 2.5v.5h-13v-.5zM0 4.5v7A2.5 2.5 0 002.5 14h11A2.5 2.5 0 0016 11.5v-7H0z" />
+          </svg>
+          <span id="serverUrlDisplay">localhost:55061</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Pages -->
+    <div class="page-container">
+
+      <!-- ── PAGE: ANALYZE ─────────────────────────────── -->
+      <section class="page active" id="page-analyze">
+        <div class="analyze-layout">
+          <!-- Left: Form -->
+          <div class="analyze-form-card card">
+            <div class="card-header">
+              <div class="card-icon purple">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                  <path d="M3 12v3c0 1.657 3.134 3 7 3s7-1.343 7-3v-3c0 1.657-3.134 3-7 3s-7-1.343-7-3z" />
+                  <path d="M3 7v3c0 1.657 3.134 3 7 3s7-1.343 7-3V7c0 1.657-3.134 3-7 3S3 8.657 3 7z" />
+                  <path d="M17 5c0 1.657-3.134 3-7 3S3 6.657 3 5s3.134-3 7-3 7 1.343 7 3z" />
+                </svg>
+              </div>
+              <h2 class="card-title">Phân tích Repository</h2>
+            </div>
+            <p class="card-desc">Nhập đường dẫn local hoặc Git URL để bắt đầu phân tích static code.</p>
+
+            <div class="form-group">
+              <label class="form-label" for="repoPath">Đường dẫn Repository</label>
+              <div class="input-with-btn">
+                <input type="text" id="repoPath" class="form-input"
+                  placeholder="C:\MyProject  hoặc  https://github.com/user/repo" />
+                <button class="btn-icon" id="btnBrowse" title="Chọn thư mục">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="outputDir">Thư mục Output <span class="optional">(tuỳ chọn)</span></label>
+              <div class="input-with-btn">
+                <input type="text" id="outputDir" class="form-input" placeholder="./output  (mặc định)" />
+                <button class="btn-icon" id="btnBrowseOutput" title="Chọn thư mục output">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <button class="btn-primary btn-lg" id="btnAnalyze">
+              <span id="btnAnalyzeText">Bắt đầu phân tích</span>
+              <div class="btn-spinner hidden" id="analyzeSpinner"></div>
+            </button>
+          </div>
+
+          <!-- Right: Results -->
+          <div class="analyze-result-panel">
+            <!-- Stats -->
+            <div class="stats-row" id="statsRow" style="display:none">
+              <div class="stat-card card">
+                <div class="stat-icon cyan">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                    <path fill-rule="evenodd"
+                      d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z"
+                      clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-value" id="statEdges">—</div>
+                  <div class="stat-label">Call Edges</div>
+                </div>
+              </div>
+              <div class="stat-card card">
+                <div class="stat-icon purple">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+                    <path fill-rule="evenodd"
+                      d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z"
+                      clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-value" id="statMethods">—</div>
+                  <div class="stat-label">Methods</div>
+                </div>
+              </div>
+              <div class="stat-card card">
+                <div class="stat-icon green">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+                    <path fill-rule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="stat-value" id="statStatus">—</div>
+                  <div class="stat-label">Trạng thái</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Result card -->
+            <div class="card result-card" id="resultCard" style="display:none">
+              <div class="card-header">
+                <div class="card-icon green">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                    <path fill-rule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <h3 class="card-title">Kết quả phân tích</h3>
+              </div>
+              <div class="result-body" id="resultBody"></div>
+              <button class="btn-secondary mt-16" id="btnGoToFeatures">
+                Xem danh sách Features
+              </button>
+            </div>
+
+            <!-- Empty state -->
+            <div class="empty-state card" id="emptyAnalyze">
+              <div class="empty-art">
+                <svg viewBox="0 0 120 80" fill="none">
+                  <circle cx="20" cy="20" r="10" fill="#6366f1" opacity="0.3" />
+                  <circle cx="100" cy="20" r="10" fill="#8b5cf6" opacity="0.3" />
+                  <circle cx="60" cy="60" r="10" fill="#06b6d4" opacity="0.3" />
+                  <line x1="20" y1="20" x2="100" y2="20" stroke="#6366f1" stroke-width="1" opacity="0.2"
+                    stroke-dasharray="4 3" />
+                  <line x1="20" y1="20" x2="60" y2="60" stroke="#8b5cf6" stroke-width="1" opacity="0.2"
+                    stroke-dasharray="4 3" />
+                  <line x1="100" y1="20" x2="60" y2="60" stroke="#06b6d4" stroke-width="1" opacity="0.2"
+                    stroke-dasharray="4 3" />
+                </svg>
+              </div>
+              <p class="empty-title">Chưa có kết quả phân tích</p>
+              <p class="empty-desc">Nhập đường dẫn repository và nhấn "Bắt đầu phân tích" để trích xuất đồ thị lời gọi.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── PAGE: FEATURES ────────────────────────────── -->
+      <section class="page" id="page-features">
+        <div class="features-layout">
+          <div class="features-toolbar">
+            <div class="search-box">
+              <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" class="search-icon">
+                <path fill-rule="evenodd"
+                  d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                  clip-rule="evenodd" />
+              </svg>
+              <input type="text" id="featureSearch" class="search-input" placeholder="Tìm kiếm feature..." />
+            </div>
+            <button class="btn-primary" id="btnLoadFeatures">Tải Features</button>
+          </div>
+
+          <div id="featuresLoading" class="loading-state hidden">
+            <div class="spinner-large"></div>
+            <p>Đang tải danh sách features...</p>
+          </div>
+
+          <div id="featuresEmpty" class="empty-state card" style="display:none">
+            <div class="empty-art">
+              <svg viewBox="0 0 80 60" fill="none">
+                <rect x="10" y="10" width="60" height="10" rx="5" fill="#6366f1" opacity="0.25" />
+                <rect x="10" y="26" width="40" height="10" rx="5" fill="#8b5cf6" opacity="0.25" />
+                <rect x="10" y="42" width="50" height="10" rx="5" fill="#06b6d4" opacity="0.25" />
+              </svg>
+            </div>
+            <p class="empty-title">Chưa có features nào</p>
+            <p class="empty-desc">Hãy phân tích một repository trước, hoặc nhấn "Tải Features".</p>
+          </div>
+
+          <div class="features-grid" id="featuresGrid"></div>
+        </div>
+      </section>
+
+      <!-- ── PAGE: CODE FLOW ───────────────────────────── -->
+      <section class="page" id="page-codeflow">
+        <div class="codeflow-layout">
+          <div class="codeflow-search-panel card">
+            <div class="card-header">
+              <div class="card-icon cyan">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                  <path
+                    d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+                </svg>
+              </div>
+              <h2 class="card-title">Xem Code Flow</h2>
+            </div>
+            <p class="card-desc">Nhập Feature ID để xem luồng thực thi của các phương thức liên quan.</p>
+            <div class="form-group">
+              <label class="form-label" for="codeflowId">Feature ID (UUID)</label>
+              <input type="text" id="codeflowId" class="form-input mono"
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+            </div>
+            <button class="btn-primary btn-lg" id="btnLoadCodeFlow">Xem Code Flow</button>
+
+            <div class="divider"></div>
+            <p class="hint-text">Hoặc chọn feature từ danh sách Features và nhấn "Xem Code Flow"</p>
+
+            <!-- Recent features -->
+            <div id="recentFeaturesList" class="recent-list"></div>
+          </div>
+
+          <div class="codeflow-result" id="codeflowResult">
+            <div class="empty-state card" id="codeflowEmpty">
+              <div class="empty-art">
+                <svg viewBox="0 0 80 80" fill="none">
+                  <rect x="5" y="5" width="30" height="20" rx="6" fill="#6366f1" opacity="0.25" />
+                  <rect x="45" y="5" width="30" height="20" rx="6" fill="#8b5cf6" opacity="0.25" />
+                  <rect x="25" y="55" width="30" height="20" rx="6" fill="#06b6d4" opacity="0.25" />
+                  <line x1="20" y1="25" x2="40" y2="55" stroke="#6366f1" stroke-width="1.5" opacity="0.3"
+                    stroke-dasharray="4 3" />
+                  <line x1="60" y1="25" x2="40" y2="55" stroke="#8b5cf6" stroke-width="1.5" opacity="0.3"
+                    stroke-dasharray="4 3" />
+                </svg>
+              </div>
+              <p class="empty-title">Chưa có Code Flow</p>
+              <p class="empty-desc">Nhập Feature ID hoặc chọn feature từ trang Features.</p>
+            </div>
+
+            <div id="codeflowContent" style="display:none">
+              <div class="codeflow-header">
+                <div class="card card-flat">
+                  <div class="feature-badge-row">
+                    <span class="badge badge-purple" id="cfFeatureName"></span>
+                    <span class="badge badge-gray" id="cfMethodCount"></span>
+                  </div>
+                  <p class="cf-feature-id" id="cfFeatureId"></p>
+                </div>
+              </div>
+              <div class="methods-list" id="methodsList"></div>
+            </div>
+
+            <div id="codeflowLoading" class="loading-state hidden">
+              <div class="spinner-large"></div>
+              <p>Đang tải code flow...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── PAGE: BUSINESS FLOW ───────────────────────── -->
+      <section class="page" id="page-bizflow">
+        <div class="bizflow-layout">
+
+          <!-- LEFT: Flow list -->
+          <div class="bizflow-list-panel">
+            <div class="bizflow-list-header">
+              <div class="card-header" style="margin-bottom:0">
+                <div class="card-icon" style="background:rgba(139,92,246,0.15);color:#a78bfa">
+                  <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
+                    <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
+                    <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
+                  </svg>
+                </div>
+                <h2 class="card-title">Business Flows</h2>
+              </div>
+              <button class="btn-primary" id="btnLoadBizFlows"
+                style="margin-top:14px;width:100%;justify-content:center">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+                  <path fill-rule="evenodd"
+                    d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                    clip-rule="evenodd" />
+                </svg>
+                Tải danh sách
+              </button>
+            </div>
+
+            <div id="bizflowListLoading" class="loading-state hidden">
+              <div class="spinner-large"></div>
+              <p>Đang tải...</p>
+            </div>
+
+            <div class="bizflow-flow-list" id="bizflowFlowList"></div>
+
+            <div class="empty-state" id="bizflowListEmpty" style="display:none;padding:32px 16px">
+              <div class="empty-art">
+                <svg viewBox="0 0 60 60" fill="none">
+                  <circle cx="30" cy="12" r="8" fill="#8b5cf6" opacity="0.3" />
+                  <circle cx="12" cy="48" r="8" fill="#6366f1" opacity="0.3" />
+                  <circle cx="48" cy="48" r="8" fill="#06b6d4" opacity="0.3" />
+                  <line x1="30" y1="20" x2="12" y2="40" stroke="#8b5cf6" stroke-width="1.5" opacity="0.3"
+                    stroke-dasharray="4 3" />
+                  <line x1="30" y1="20" x2="48" y2="40" stroke="#06b6d4" stroke-width="1.5" opacity="0.3"
+                    stroke-dasharray="4 3" />
+                </svg>
+              </div>
+              <p class="empty-title">Chưa có flows</p>
+              <p class="empty-desc">Hãy nhấn "Tải danh sách" để lấy dữ liệu từ server.</p>
+            </div>
+          </div>
+
+          <!-- RIGHT: Flow detail -->
+          <div class="bizflow-detail-panel">
+
+            <!-- Empty state -->
+            <div class="bizflow-detail-empty" id="bizflowDetailEmpty">
+              <div class="geo-art">
+                <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+                  <circle cx="60" cy="60" r="50" stroke="rgba(139,92,246,0.08)" stroke-width="1" />
+                  <circle cx="60" cy="60" r="34" stroke="rgba(139,92,246,0.12)" stroke-width="1" />
+                  <rect x="20" y="26" width="36" height="22" rx="6" fill="#8b5cf6" opacity="0.2" />
+                  <rect x="64" y="26" width="36" height="22" rx="6" fill="#6366f1" opacity="0.2" />
+                  <rect x="42" y="72" width="36" height="22" rx="6" fill="#06b6d4" opacity="0.2" />
+                  <line x1="56" y1="48" x2="60" y2="72" stroke="#8b5cf6" stroke-width="1.5" opacity="0.3"
+                    stroke-dasharray="4 3" />
+                  <line x1="82" y1="48" x2="64" y2="72" stroke="#6366f1" stroke-width="1.5" opacity="0.3"
+                    stroke-dasharray="4 3" />
+                </svg>
+              </div>
+              <p class="geo-title">Chọn một Business Flow</p>
+              <p class="geo-desc">Tải danh sách và nhấn vào một flow để xem đồ thị luồng nghiệp vụ.</p>
+            </div>
+
+            <!-- Detail content -->
+            <div id="bizflowDetailContent" style="display:none;height:100%;display:none;flex-direction:column;gap:14px">
+
+              <!-- Meta info bar -->
+              <div class="bizflow-meta card">
+                <div class="bizflow-meta-row">
+                  <div class="bizflow-meta-item">
+                    <span class="bizflow-meta-label">Tên Flow</span>
+                    <span class="bizflow-meta-value" id="bfMetaName">—</span>
+                  </div>
+                  <div class="bizflow-meta-item">
+                    <span class="bizflow-meta-label">Entry Point</span>
+                    <span class="bizflow-meta-value mono" id="bfMetaEntry">—</span>
+                  </div>
+                  <div class="bizflow-meta-item">
+                    <span class="bizflow-meta-label">Số bước</span>
+                    <span class="bizflow-meta-value" id="bfMetaSteps">—</span>
+                  </div>
+                  <div class="bizflow-meta-item">
+                    <span class="bizflow-meta-label">Ngày tạo</span>
+                    <span class="bizflow-meta-value" id="bfMetaDate">—</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Graph area -->
+              <div class="bizflow-graph-section card">
+                <div class="bizflow-graph-header">
+                  <div class="bizflow-graph-title">
+                    <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" style="color:#8b5cf6">
+                      <path
+                        d="M0 0h1v15h15v1H0V0zm14.854 5.854l-3-3a.5.5 0 00-.708.708L12.793 5H10.5A3.5 3.5 0 007 8.5v1a2.5 2.5 0 01-5 0V8a.5.5 0 00-1 0v1.5a3.5 3.5 0 007 0v-1A2.5 2.5 0 0110.5 6h2.293l-1.647 1.646a.5.5 0 00.708.708l3-3a.5.5 0 000-.5z" />
+                    </svg>
+                    <span>Đồ thị luồng nghiệp vụ</span>
+                  </div>
+                  <div class="bizflow-graph-controls">
+                    <button class="ctrl-btn" id="btnBfZoomIn" title="Phóng to">+</button>
+                    <button class="ctrl-btn" id="btnBfZoomOut" title="Thu nhỏ">−</button>
+                    <button class="ctrl-btn" id="btnBfReset" title="Đặt lại">⊙</button>
+                  </div>
+                </div>
+                <div class="bizflow-canvas-wrap" id="bizflowCanvasWrap"></div>
+                <!-- Legend -->
+                <div class="bizflow-legend">
+                  <span class="bf-legend-item" style="--lc:#8b5cf6">⬤ Entry Point</span>
+                  <span class="bf-legend-item" style="--lc:#3b82f6">⬤ Intermediate</span>
+                  <span class="bf-legend-item" style="--lc:#06b6d4">⬤ Leaf Method</span>
+                  <span class="bf-legend-sep"></span>
+                  <span class="bf-legend-hint">Scroll: zoom · Drag: pan</span>
+                </div>
+              </div>
+
+              <!-- Steps table -->
+              <div class="bizflow-steps-section card">
+                <div class="card-header">
+                  <div class="card-icon" style="background:rgba(6,182,212,0.12);color:#06b6d4">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                      <path fill-rule="evenodd"
+                        d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
+                        clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                  <h3 class="card-title">Các bước thực thi</h3>
+                </div>
+                <div class="bizflow-steps-scroll">
+                  <table class="bizflow-steps-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Caller Class</th>
+                        <th>Caller Method</th>
+                        <th></th>
+                        <th>Callee Class</th>
+                        <th>Callee Method</th>
+                      </tr>
+                    </thead>
+                    <tbody id="bizflowStepsBody"></tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div><!-- /bizflowDetailContent -->
+
+            <!-- Loading -->
+            <div id="bizflowDetailLoading" class="loading-state hidden" style="height:100%;justify-content:center">
+              <div class="spinner-large"></div>
+              <p>Đang tải luồng nghiệp vụ...</p>
+            </div>
+
+          </div><!-- /bizflow-detail-panel -->
+        </div><!-- /bizflow-layout -->
+      </section>
+
+      <!-- ── PAGE: GRAPH ──────────────────────────────── -->
+      <section class="page" id="page-graph">
+
+        <!-- Top toolbar -->
+        <div class="graph-topbar">
+          <div class="scan-input-row">
+            <input type="text" id="localScanPath" class="scan-path-input"
+              placeholder="Nhập đường dẫn thư mục dự án..." />
+            <button class="scan-btn-browse" id="btnBrowseLocal">Chọn</button>
+            <button class="scan-btn-run" id="btnScanLocal">Quét</button>
+          </div>
+          <div class="graph-topbar-right">
+            <div class="graph-stats-inline hidden" id="sigmaStats">
+              <span id="sigmaNodeCount">0</span> files &middot; <span id="sigmaEdgeCount">0</span> edges
+            </div>
+            <div class="ext-legend">
+              <span class="ext-dot" style="background:#6366f1"></span>.ts
+              <span class="ext-dot" style="background:#8b5cf6"></span>.tsx
+              <span class="ext-dot" style="background:#06b6d4"></span>.js
+              <span class="ext-dot" style="background:#f59e0b"></span>.jsx
+              <span class="ext-dot" style="background:#10b981"></span>.cs
+            </div>
+            <div class="graph-controls">
+              <button class="ctrl-btn" id="btnSigmaZoomIn" title="Phóng to">+</button>
+              <button class="ctrl-btn" id="btnSigmaZoomOut" title="Thu nhỏ">−</button>
+              <button class="ctrl-btn" id="btnSigmaReset" title="Đặt lại">⊙</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="scan-progress hidden" id="sigmaProgress">
+          <div class="scan-progress-track">
+            <div class="scan-progress-fill"></div>
+          </div>
+          <span class="scan-progress-text" id="sigmaProgressText">Đang quét...</span>
+        </div>
+
+        <!-- ┌ Main 3-zone layout: [FileTree | divider | Graph+Code] ┐ -->
+        <div class="graph-layout" id="graphLayout">
+
+          <!-- ── LEFT: File Tree Panel ─────────────────────── -->
+          <aside class="filetree-panel" id="filetreePanel">
+            <div class="filetree-header">
+              <span class="filetree-title">Dự án</span>
+              <div class="filetree-actions">
+                <span class="file-tree-count" id="fileTreeCount"></span>
+                <button class="filetree-toggle-btn" id="btnToggleFiletree" title="Thu gọn">
+                  <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">
+                    <path
+                      d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="filetree-search-wrap">
+              <input type="text" id="fileTreeSearch" class="file-tree-search-input" placeholder="Tìm file..." />
+            </div>
+            <div class="file-tree-root" id="fileTreeRoot">
+              <div class="filetree-empty-state" id="filetreeEmpty">
+                <div class="filetree-empty-icon">📂</div>
+                <p>Quét dự án để<br />xem cấu trúc file</p>
+              </div>
+            </div>
+          </aside>
+
+          <!-- ── DIVIDER ────────────────────────────────────── -->
+          <div class="panel-divider" id="filetreeDivider"></div>
+
+          <!-- ── RIGHT: Graph canvas + Code panel ──────────── -->
+          <div class="graph-main-area" id="graphMainArea">
+
+            <!-- Graph canvas (takes remaining space) -->
+            <div class="graph-canvas-area" id="graphCanvasArea">
+
+              <!-- Floating node info overlay (top-right) -->
+              <div class="node-info-overlay hidden" id="nodeInfoOverlay">
+                <div class="nio-header">
+                  <div class="nio-title">
+                    <span class="nio-filename" id="nioFilename">filename.ts</span>
+                    <span class="nio-ext-badge" id="nioExt">.ts</span>
+                  </div>
+                  <button class="nio-close" id="nioClose">×</button>
+                </div>
+                <div class="nio-path" id="nioPath">path/to/file</div>
+                <div class="nio-stats-row">
+                  <div class="nio-stat"><span class="nio-stat-n" id="nioEdges">0</span><span
+                      class="nio-stat-l">Edges</span></div>
+                  <div class="nio-stat-sep"></div>
+                  <div class="nio-stat"><span class="nio-stat-n" id="nioImports">0</span><span
+                      class="nio-stat-l">Imports</span></div>
+                  <div class="nio-stat-sep"></div>
+                  <div class="nio-stat"><span class="nio-stat-n" id="nioImporters">0</span><span
+                      class="nio-stat-l">Importers</span></div>
+                </div>
+                <div class="nio-deps">
+                  <div class="nio-dep-row">
+                    <span class="nio-dep-label">Imports từ:</span>
+                    <div class="nio-dep-chips" id="nioImportsList"></div>
+                  </div>
+                  <div class="nio-dep-row">
+                    <span class="nio-dep-label">Được import bởi:</span>
+                    <div class="nio-dep-chips" id="nioImportedByList"></div>
+                  </div>
+                </div>
+                <button class="nio-view-code-btn" id="btnViewCode">
+                  <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
+                    <path
+                      d="M5.854 4.854a.5.5 0 1 0-.708-.708l-3.5 3.5a.5.5 0 0 0 0 .708l3.5 3.5a.5.5 0 0 0 .708-.708L2.707 8l3.147-3.146zm4.292 0a.5.5 0 0 1 .708-.708l3.5 3.5a.5.5 0 0 1 0 .708l-3.5 3.5a.5.5 0 0 1-.708-.708L13.293 8l-3.147-3.146z" />
+                  </svg>
+                  Xem Source Code
+                </button>
+              </div>
+
+              <!-- Empty state overlay -->
+              <div class="graph-empty-overlay" id="sigmaEmpty">
+                <div class="geo-art">
+                  <svg width="140" height="140" viewBox="0 0 140 140" fill="none">
+                    <circle cx="70" cy="70" r="58" stroke="rgba(99,102,241,0.1)" stroke-width="1" />
+                    <circle cx="70" cy="70" r="40" stroke="rgba(99,102,241,0.15)" stroke-width="1" />
+                    <circle cx="70" cy="24" r="8" fill="#6366f1" opacity="0.6" />
+                    <circle cx="113" cy="95" r="8" fill="#8b5cf6" opacity="0.6" />
+                    <circle cx="27" cy="95" r="8" fill="#06b6d4" opacity="0.6" />
+                    <circle cx="70" cy="70" r="5" fill="#10b981" opacity="0.5" />
+                    <line x1="70" y1="24" x2="113" y2="95" stroke="#6366f1" stroke-width="1" opacity="0.25" />
+                    <line x1="113" y1="95" x2="27" y2="95" stroke="#8b5cf6" stroke-width="1" opacity="0.25" />
+                    <line x1="27" y1="95" x2="70" y2="24" stroke="#06b6d4" stroke-width="1" opacity="0.25" />
+                    <line x1="70" y1="24" x2="70" y2="70" stroke="rgba(99,102,241,0.2)" stroke-width="1"
+                      stroke-dasharray="4 3" />
+                    <line x1="113" y1="95" x2="70" y2="70" stroke="rgba(139,92,246,0.2)" stroke-width="1"
+                      stroke-dasharray="4 3" />
+                    <line x1="27" y1="95" x2="70" y2="70" stroke="rgba(6,182,212,0.2)" stroke-width="1"
+                      stroke-dasharray="4 3" />
+                  </svg>
+                </div>
+                <p class="geo-title">Biểu đồ phụ thuộc</p>
+                <p class="geo-desc">Nhập đường dẫn thư mục và nhấn <strong>Quét</strong><br>để trực quan hóa cấu trúc
+                  import của dự án.</p>
+              </div>
+
+              <!-- Sigma WebGL canvas -->
+              <div id="sigmaContainer" class="sigma-canvas"></div>
+            </div><!-- /.graph-canvas-area -->
+
+            <!-- Code Panel: slides up from bottom, drag handle to resize -->
+            <div class="code-panel" id="codePanel">
+              <div class="code-panel-handle" id="codePanelHandle">
+                <div class="code-panel-handle-bar"></div>
+              </div>
+              <div class="code-panel-header">
+                <div class="code-panel-tab">
+                  <span class="code-tab-ext" id="codePanelExt">.ts</span>
+                  <span class="code-tab-name" id="codePanelFilename">filename.ts</span>
+                  <span class="code-tab-path" id="codePanelPath"></span>
+                </div>
+                <div class="code-panel-header-right">
+                  <span class="code-loading-badge hidden" id="codePanelLoading">Đang tải...</span>
+                  <button class="code-panel-close" id="btnCloseCode" title="Đóng code panel">×</button>
+                </div>
+              </div>
+              <div class="code-panel-body">
+                <pre class="inspector-code"
+                  id="inspDetailCode"><code id="inspDetailCodeInner" class="language-typescript">// Chọn một node hoặc file để xem source code</code></pre>
+              </div>
+            </div><!-- /.code-panel -->
+
+          </div><!-- /.graph-main-area -->
+
+        </div><!-- /.graph-layout -->
+      </section>
+
+    </div>
+  </main>
+
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay hidden" id="settingsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Cài đặt Server</h3>
+        <button class="modal-close" id="modalClose">
+          <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+            <path fill-rule="evenodd"
+              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+              clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="serverUrl">Base URL của API Server</label>
+          <input type="text" id="serverUrl" class="form-input" placeholder="http://localhost:5000" />
+          <p class="field-hint">Ví dụ: http://localhost:5000 hoặc https://myserver.com</p>
+        </div>
+        <button class="btn-primary" id="btnSaveSettings" style="width:100%">Lưu cài đặt</button>
+        <button class="btn-secondary mt-8" id="btnTestConnection" style="width:100%">Kiểm tra kết nối</button>
+        <div id="connectionTestResult" class="connection-result hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Graph libraries bundle (Graphology + Sigma + ForceAtlas2) -->
+  <script src="lib/graph-libs.bundle.js"></script>
+  <!-- Canvas-based graph engine (legacy API mode) -->
+  <script src="graph.js"></script>
+  <!-- Sigma.js engine (Local Scan mode) -->
+  <script src="graph-sigma.js"></script>
+  <!-- Business Flow graph engine -->
+  <script src="bizflow-graph.js"></script>
+  <!-- Prism.js syntax highlighting -->
+  <script src="lib/prism.min.js"></script>
+  <script src="lib/prism-typescript.min.js"></script>
+  <script src="lib/prism-csharp.min.js"></script>
+  <script src="lib/prism-jsx.min.js"></script>
+  <script src="lib/prism-tsx.min.js"></script>
+  <!-- Main app logic -->
+  <script src="app.js"></script>
+</body>
+
+</html>
