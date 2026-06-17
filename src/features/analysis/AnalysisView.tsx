@@ -13,6 +13,7 @@ const AnalysisView = () => {
   } = useAppStore();
   const [outputDir, setOutputDir] = useState("");
 
+
   const handleAnalyze = async () => {
     if (!selectedRepoPath) {
       showToast("Chưa có repository được chọn.", "error");
@@ -27,13 +28,13 @@ const AnalysisView = () => {
         outputDir: outputDir || null,
       });
       if (res?.success && res.data) {
-        const data = res.data as Record<string, unknown>;
+        const data = res.data as Record<string, any>;
         setAnalysisResult({
-          callEdges: data.callEdges as number,
-          methods: data.methods as number,
+          callEdges: (data.edgesCount ?? data.EdgesCount ?? data.callEdges ?? 0) as number,
+          methods: (data.methodsCount ?? data.MethodsCount ?? data.methods ?? 0) as number,
           repositoryPath: selectedRepoPath,
           status: "Completed",
-          message: data.message as string,
+          message: (data.message ?? data.Message) as string,
         });
         showToast("Phân tích hoàn tất!", "success");
       } else {
@@ -45,6 +46,8 @@ const AnalysisView = () => {
       setIsAnalyzing(false);
     }
   };
+
+  // useEffect(() => { handleAnalyze() }, [])
 
   const handleSelectFolder = async () => {
     const folder = await window.dialog?.selectFolder();
@@ -302,8 +305,8 @@ const AnalysisView = () => {
                 <div className="result-body">
                   <div className="result-row">
                     <span className="result-row-label">Repository</span>
-                    <span className="result-row-value">
-                      {analysisResult.repositoryPath}
+                    <span className="result-row-value" title={analysisResult.repositoryPath}>
+                      {analysisResult.repositoryPath?.split(/[\\/]/).pop() || analysisResult.repositoryPath}
                     </span>
                   </div>
                   {analysisResult.message && (

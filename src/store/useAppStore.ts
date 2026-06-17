@@ -3,7 +3,7 @@ import { create } from "zustand";
 // --- Types ---
 export interface FeatureItem {
     id: string;
-    name: string;
+    featureName: string;
     description?: string;
     createdAt?: string;
 }

@@ -26,12 +26,12 @@ const FeaturesView = () => {
   };
 
   useEffect(() => {
-    if (features.length === 0) loadFeatures();
+    loadFeatures();
   }, []);
 
   const filtered = features.filter(
     (f) =>
-      f.name?.toLowerCase().includes(search.toLowerCase()) ||
+      f.featureName?.toLowerCase().includes(search.toLowerCase()) ||
       f.id?.toLowerCase().includes(search.toLowerCase()),
   );
 
@@ -146,7 +146,7 @@ const FeaturesView = () => {
                 }
                 style={{ cursor: "pointer" }}
               >
-                <div className="feature-card-name">{feature.name}</div>
+                <div className="feature-card-name">{feature.featureName}</div>
                 <div className="feature-id-text">{feature.id}</div>
                 {feature.description && (
                   <div

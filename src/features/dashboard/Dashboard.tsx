@@ -5,7 +5,7 @@ import { useAppStore } from '../../store/useAppStore';
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { serverUrl, showToast } = useAppStore();
+  const { serverUrl, showToast, setAnalysisResult } = useAppStore();
   const [repoPath, setRepoPath] = useState('');
   const [outputDir, setOutputDir] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -132,6 +132,14 @@ const Dashboard = () => {
         outputDir: outputDir.trim() || null
       });
       if (result?.success) {
+        const data = result.data as any;
+        setAnalysisResult({
+          callEdges: (data.edgesCount ?? data.EdgesCount ?? data.callEdges ?? 0) as number,
+          methods: (data.methodsCount ?? data.MethodsCount ?? data.methods ?? 0) as number,
+          repositoryPath: repoPath.trim(),
+          status: 'Completed',
+          message: (data.message ?? data.Message) as string,
+        });
         showToast('Phân tích thành công! Đang chuyển đến Workspace...', 'success');
         const repoId = encodeURIComponent(repoPath.trim());
         navigate(`/workspace/${repoId}?tab=analyze`);
@@ -166,7 +174,7 @@ const Dashboard = () => {
         <div className="top-bar-right">
           <div className="server-url-badge">
             <svg viewBox="0 0 16 16" fill="currentColor" width="10" height="10">
-              <circle cx="8" cy="8" r="3" fill="var(--green)"/>
+              <circle cx="8" cy="8" r="3" fill="var(--green)" />
             </svg>
             {serverUrl}
           </div>
@@ -257,43 +265,85 @@ const Dashboard = () => {
                       <div className="empty-desc">Các lượt phân tích thành công trước đó sẽ được lưu lại tại đây.</div>
                     </div>
                   ) : (
-                    <div style={{ overflowX: 'auto', marginTop: 12 }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                            <th style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--text-muted)' }}>Thư mục</th>
-                            <th style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--text-muted)', width: 180 }}>Thời gian chạy</th>
-                            <th style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--text-muted)', width: 120 }}>Trạng thái</th>
-                            <th style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--text-muted)', width: 140, textAlign: 'right' }}>Hành động</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {runs.map((run, index) => {
-                            const pathStr = run.repositoryPath || run.RepositoryPath || '';
-                            const timeStr = run.createdAt || run.CreatedAt ? new Date(run.createdAt || run.CreatedAt).toLocaleString('vi-VN') : '—';
-                            const statusStr = run.status || run.Status || 'Success';
-                            
-                            return (
-                              <tr key={run.id || index} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}>
-                                <td style={{ padding: '12px', fontFamily: 'var(--font-mono)', fontSize: 12, wordBreak: 'break-all' }} title={pathStr}>
-                                  {pathStr}
-                                </td>
-                                <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{timeStr}</td>
-                                <td style={{ padding: '12px' }}>
-                                  <span className={`badge ${statusStr.toLowerCase() === 'failed' ? 'red' : 'green'}`} style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11 }}>
-                                    {statusStr}
-                                  </span>
-                                </td>
-                                <td style={{ padding: '12px', textAlign: 'right' }}>
-                                  <button className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => openWorkspace(pathStr)}>
-                                    Mở Workspace
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
+                      <div style={{ display: 'flex', padding: '0 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        <div style={{ flex: 1 }}>Thư mục (Repository)</div>
+                        <div style={{ width: '180px' }}>Thời gian chạy</div>
+                        <div style={{ width: '120px' }}>Trạng thái</div>
+                        <div style={{ width: '140px', textAlign: 'right' }}>Hành động</div>
+                      </div>
+
+                      {runs.map((run, index) => {
+                        const pathStr = run.repositoryPath || run.RepositoryPath || '';
+                        const timeStr = run.createdAt || run.CreatedAt ? new Date(run.createdAt || run.CreatedAt).toLocaleString('vi-VN') : '—';
+                        const statusStr = run.status || run.Status || 'Success';
+                        const isFailed = statusStr.toLowerCase() === 'failed';
+
+                        return (
+                          <div
+                            key={run.id || index}
+                            className="card-flat"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '12px 16px',
+                              gap: '16px',
+                              transition: 'all 0.2s',
+                              cursor: 'default',
+                              border: '1px solid var(--border)'
+                            }}
+                            onMouseOver={e => {
+                              e.currentTarget.style.transform = 'translateY(-2px)';
+                              e.currentTarget.style.boxShadow = 'var(--shadow)';
+                              e.currentTarget.style.borderColor = 'var(--blue)';
+                              e.currentTarget.style.background = 'var(--bg-elevated)';
+                            }}
+                            onMouseOut={e => {
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = 'none';
+                              e.currentTarget.style.borderColor = 'var(--border)';
+                              e.currentTarget.style.background = 'var(--bg-elevated)';
+                            }}
+                          >
+                            <div style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 13, wordBreak: 'break-all', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }} title={pathStr}>
+                              {/* <div className="card-icon blue" style={{ width: '32px', height: '32px', borderRadius: '8px' }}>
+                                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                                  <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                                </svg>
+                              </div> */}
+                              <span style={{ fontWeight: 600 }}>{pathStr.split(/[\\/]/).pop()}</span>
+                            </div>
+                            <div style={{ width: '180px', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }}>
+                              {timeStr}
+                            </div>
+                            <div style={{ width: '120px' }}>
+                              <span
+                                className={`badge badge-${isFailed ? 'red' : 'green'}`}
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: '20px',
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: isFailed ? 'var(--red)' : 'var(--green)',
+                                  background: isFailed ? 'var(--red-dim)' : 'var(--green-dim)',
+                                  border: `1px solid ${isFailed ? 'rgba(244, 63, 94, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
+                                }}
+                              >
+                                {statusStr}
+                              </span>
+                            </div>
+                            <div style={{ width: '140px', textAlign: 'right' }}>
+                              <button
+                                className="btn-secondary"
+                                style={{ padding: '6px 14px', fontSize: 12, fontWeight: 600, color: 'var(--blue)' }}
+                                onClick={() => openWorkspace(pathStr)}
+                              >
+                                Mở Workspace
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -321,7 +371,7 @@ const Dashboard = () => {
 
               {/* Form to add few shot */}
               {showFewShotForm && (
-                <div className="card" style={{ borderLeft: '4px solid var(--blue)' }}>
+                <div className="card">
                   <h3 className="card-title" style={{ marginBottom: 16, fontSize: 14 }}>Tạo câu hỏi mẫu mới</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                     <div className="form-group" style={{ gridColumn: 'span 2' }}>
@@ -392,7 +442,7 @@ const Dashboard = () => {
               {/* Few Shot List */}
               <div className="card">
                 <h2 className="card-title" style={{ marginBottom: 12 }}>Danh sách câu hỏi hiện tại</h2>
-                
+
                 {isLoadingFewShots ? (
                   <div className="loading-state">
                     <div className="spinner-large" />
@@ -433,7 +483,7 @@ const Dashboard = () => {
                               {shot.createdAt || shot.CreatedAt ? new Date(shot.createdAt || shot.CreatedAt).toLocaleDateString('vi-VN') : ''}
                             </span>
                           </div>
-                          
+
                           <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', marginTop: 10, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
                             {qText}
                           </div>

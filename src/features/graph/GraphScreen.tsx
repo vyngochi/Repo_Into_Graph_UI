@@ -102,27 +102,38 @@ const CoreFlowTab = ({
 }: {
   initialFeatureId?: string;
 }) => {
-  const { serverUrl, showToast } = useAppStore();
-  const [featureId, setFeatureId] = useState(initialFeatureId);
+  const { serverUrl, showToast, selectedRepoPath } = useAppStore();
+  const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [codeFlow, setCodeFlow] = useState<any>(null);
 
-  const handleLoad = async (fid = featureId) => {
-    if (!fid.trim()) {
-      showToast("Vui lòng nhập Feature ID.", "error");
+  const handleLoad = async () => {
+    if (!selectedRepoPath?.trim()) {
+      showToast("Không có thư mục được chọn trong Workspace.", "error");
       return;
     }
     setIsLoading(true);
     setCodeFlow(null);
     try {
-      const res = await window.api?.getCodeFlow({
-        baseUrl: serverUrl,
-        id: fid.trim(),
-      });
-      if (res?.success) {
-        setCodeFlow(res.data);
+      const result = await window.graphApi?.scanLocal(selectedRepoPath.trim());
+      if (result?.success) {
+        const nodes = result.nodes || [];
+        const edges = result.edges || [];
+
+        const mappedFiles = nodes.map((node: any) => {
+          const path = node.id;
+          const imports = edges.filter((e: any) => e.source === path).map((e: any) => e.target);
+          const importedBy = edges.filter((e: any) => e.target === path).map((e: any) => e.source);
+          return {
+            path,
+            imports,
+            importedBy,
+            sourceCode: node.attributes?.sourceCode || ""
+          };
+        });
+        setCodeFlow({ files: mappedFiles, edgesCount: edges.length });
       } else {
-        showToast(res?.error || "Không thể tải Code Flow.", "error");
+        showToast(result?.error || "Không thể tải Core Flow.", "error");
       }
     } catch {
       showToast("Lỗi kết nối.", "error");
@@ -132,15 +143,19 @@ const CoreFlowTab = ({
   };
 
   useEffect(() => {
-    if (initialFeatureId) {
-      setFeatureId(initialFeatureId);
-      handleLoad(initialFeatureId);
+    if (selectedRepoPath) {
+      handleLoad();
     }
-  }, [initialFeatureId]);
+  }, [selectedRepoPath]);
 
-  // Defensive extraction of methods array
-  const rawMethods = codeFlow?.methods || codeFlow?.Methods || [];
-  const methods = Array.isArray(rawMethods) ? rawMethods : [];
+  // Defensive extraction of files array
+  const rawFiles = codeFlow?.files || codeFlow?.Files || codeFlow?.methods || codeFlow?.Methods || [];
+  let files = Array.isArray(rawFiles) ? rawFiles : [];
+  const totalEdges = codeFlow?.edgesCount || 0;
+
+  if (searchQuery.trim()) {
+    files = files.filter((f: any) => f.path?.toLowerCase().includes(searchQuery.toLowerCase()));
+  }
 
   return (
     <div
@@ -166,33 +181,37 @@ const CoreFlowTab = ({
           }}
         >
           <div className="card-header">
-            <div className="card-icon blue">
-              <svg
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                width="16"
-                height="16"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633z"
-                  clipRule="evenodd"
-                />
-              </svg>
+            <div className="card-icon" style={{ background: "rgba(99, 102, 241, 0.1)", color: "var(--blue)", width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "8px", fontWeight: 700, fontSize: "16px" }}>
+              /
             </div>
             <div className="card-title">Core Flow</div>
           </div>
-          <p className="card-desc">Nhập Feature ID để xem luồng gọi hàm.</p>
+          <p className="card-desc">Xem danh sách các file dự án và sự phụ thuộc giữa các file.</p>
           <div className="form-group">
-            <label className="form-label">Feature ID</label>
+            <label className="form-label" style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "8px", display: "block" }}>Tìm kiếm file</label>
             <input
               type="text"
-              className="form-input mono"
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              value={featureId}
-              onChange={(e) => setFeatureId(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleLoad()}
+              className="form-input"
+              placeholder="Tìm theo tên file..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
+          </div>
+          <div className="form-group" style={{ marginTop: "16px" }}>
+            <label className="form-label" style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "8px", display: "block" }}>Định dạng file</label>
+            <select className="form-input" style={{ width: "100%", appearance: "none", background: "var(--bg-elevated) url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23666%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E') no-repeat right 12px center", paddingRight: "32px" }}>
+              <option>Tất cả định dạng</option>
+            </select>
+          </div>
+          <div style={{ display: "flex", gap: "16px", margin: "24px 0" }}>
+            <div style={{ flex: 1, background: "var(--bg-elevated)", borderRadius: "var(--radius)", padding: "16px", textAlign: "center", border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--blue)" }}>{codeFlow ? codeFlow.files?.length : 0}</div>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", marginTop: "4px" }}>Tổng files</div>
+            </div>
+            <div style={{ flex: 1, background: "var(--bg-elevated)", borderRadius: "var(--radius)", padding: "16px", textAlign: "center", border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--blue)" }}>{totalEdges}</div>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", marginTop: "4px" }}>Phụ thuộc</div>
+            </div>
           </div>
           <button
             className="btn-primary btn-lg"
@@ -201,7 +220,7 @@ const CoreFlowTab = ({
             style={{ width: "100%" }}
           >
             {isLoading ? <span className="btn-spinner" /> : null}
-            {isLoading ? "Đang tải..." : "Xem Code Flow"}
+            {isLoading ? "Đang tải..." : "Quét lại thư mục"}
           </button>
         </div>
 
@@ -220,9 +239,9 @@ const CoreFlowTab = ({
               }}
             >
               <div className="empty-state">
-                <div className="empty-title">Nhập Feature ID để bắt đầu</div>
+                <div className="empty-title">Mở một Workspace để bắt đầu</div>
                 <div className="empty-desc">
-                  Code Flow sẽ hiển thị thứ tự gọi hàm trong feature được chọn.
+                  Core Flow sẽ tự động phân tích và hiển thị cấu trúc các file dự án.
                 </div>
               </div>
             </div>
@@ -238,12 +257,12 @@ const CoreFlowTab = ({
             >
               <div className="loading-state">
                 <div className="spinner-large" />
-                <span>Đang tải Code Flow...</span>
+                <span>Đang tải Core Flow...</span>
               </div>
             </div>
           )}
 
-          {codeFlow && methods.length === 0 && (
+          {codeFlow && files.length === 0 && (
             <div
               className="card"
               style={{
@@ -253,16 +272,16 @@ const CoreFlowTab = ({
               }}
             >
               <div className="empty-state">
-                <div className="empty-title">Không tìm thấy method calls</div>
+                <div className="empty-title">Không tìm thấy thông tin cấu trúc file</div>
                 <div className="empty-desc">
-                  Feature này không chứa thông tin code flow hoặc chưa được phân
+                  Thư mục này không chứa thông tin file và sự phụ thuộc hoặc chưa được phân
                   tích đúng.
                 </div>
               </div>
             </div>
           )}
 
-          {codeFlow && methods.length > 0 && (
+          {codeFlow && files.length > 0 && (
             <div
               style={{
                 position: "relative",
@@ -272,12 +291,7 @@ const CoreFlowTab = ({
                 marginTop: "8px",
               }}
             >
-              {methods.map((method: any, i: number) => {
-                const className =
-                  method.className || method.ClassName || "UnknownClass";
-                const methodName =
-                  method.methodName || method.MethodName || "UnknownMethod";
-                const sourceCode = method.sourceCode || method.SourceCode || "";
+              {files.map((file: any, i: number) => {
                 return (
                   <div
                     key={i}
@@ -321,11 +335,7 @@ const CoreFlowTab = ({
                       {i + 1}
                     </div>
 
-                    <MethodCard
-                      className={className}
-                      methodName={methodName}
-                      sourceCode={sourceCode}
-                    />
+                    <FileDependencyCard file={file} selectedRepoPath={selectedRepoPath} />
                   </div>
                 );
               })}
@@ -337,16 +347,52 @@ const CoreFlowTab = ({
   );
 };
 
-const MethodCard = ({
-  className,
-  methodName,
-  sourceCode,
+const FileDependencyCard = ({
+  file,
+  selectedRepoPath
 }: {
-  className: string;
-  methodName: string;
-  sourceCode: string;
+  file: any;
+  selectedRepoPath: string | null;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [sourceCode, setSourceCode] = useState<string>("");
+  const [isLoadingCode, setIsLoadingCode] = useState(false);
+
+  // Extract data with fallbacks
+  const filePath = file.path || file.Path || file.className || "Unknown/File.cs";
+  const fileName = filePath.split("/").pop() || filePath;
+  const dirPath = filePath.substring(0, filePath.lastIndexOf("/"));
+
+  // Use explicit mock data if real data is missing, to match the UI image
+  const imports = file.imports || file.Imports || [];
+  const importedBy = file.importedBy || file.ImportedBy || [];
+
+  useEffect(() => {
+    if (isOpen && !sourceCode && !isLoadingCode && selectedRepoPath) {
+      const absPath =
+        selectedRepoPath.replace(/[\\/]$/, "") +
+        "\\" +
+        filePath.replace(/\//g, "\\");
+
+      setIsLoadingCode(true);
+      window.graphApi
+        ?.readFile(absPath)
+        .then((res) => {
+          if (res?.success && res.content) {
+            setSourceCode(res.content);
+          } else {
+            setSourceCode("// Lỗi đọc file: " + (res?.error || "Không có nội dung"));
+          }
+        })
+        .catch((err) => {
+          setSourceCode("// Lỗi: " + err);
+        })
+        .finally(() => {
+          setIsLoadingCode(false);
+        });
+    }
+  }, [isOpen, sourceCode, isLoadingCode, filePath, selectedRepoPath]);
+
   return (
     <div
       className={`method-card${isOpen ? " open" : ""}`}
@@ -375,40 +421,35 @@ const MethodCard = ({
       >
         <div
           className="method-card-title"
-          style={{ fontFamily: "var(--font-mono)", fontSize: "13px" }}
+          style={{ fontSize: "13px" }}
         >
-          <span
-            className="method-class"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            {className}
+          <span style={{ color: "var(--text-secondary)" }}>
+            {dirPath ? dirPath + " / " : ""}
           </span>
-          <span style={{ color: "var(--text-muted)", margin: "0 2px" }}>.</span>
-          <span
-            className="method-name"
-            style={{ color: "var(--blue-light)", fontWeight: 600 }}
-          >
-            {methodName}
+          <span style={{ color: "var(--blue-light)", fontWeight: 600 }}>
+            {fileName}
           </span>
         </div>
-        <svg
-          className="method-card-chevron"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          width="16"
-          height="16"
-          style={{
-            transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 0.2s",
-            color: "var(--text-muted)",
-          }}
-        >
-          <path
-            fillRule="evenodd"
-            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-            clipRule="evenodd"
-          />
-        </svg>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "var(--text-muted)" }}>
+          <span>{imports.length} imports &middot; {importedBy.length} imported by</span>
+          <svg
+            className="method-card-chevron"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            width="16"
+            height="16"
+            style={{
+              transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.2s",
+            }}
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </div>
       </div>
       {isOpen && (
         <div
@@ -416,22 +457,88 @@ const MethodCard = ({
           style={{
             borderTop: "1px solid var(--border)",
             background: "rgba(255, 255, 255, 0.3)",
+            padding: "20px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "20px"
           }}
         >
-          <pre
-            className="method-source"
-            style={{
-              padding: "16px 20px",
-              margin: 0,
-              fontSize: "12px",
-              fontFamily: "var(--font-mono)",
-              overflowX: "auto",
-              color: "var(--text-primary)",
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {sourceCode || "// Không có source code"}
-          </pre>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+            <div>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "12px" }}>
+                Tệp tin nhập vào ({imports.length} IMPORTS)
+              </div>
+              {imports.length > 0 ? (
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {imports.map((imp: any, idx: number) => (
+                    <li key={idx} style={{ fontSize: "12px", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ color: "var(--warning)", fontSize: "14px" }}>📁</span> {imp}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div style={{ fontSize: "12px", color: "var(--text-muted)", fontStyle: "italic" }}>Chưa có file nào</div>
+              )}
+            </div>
+            <div>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "12px" }}>
+                Được nhập bởi ({importedBy.length} DEPENDENTS)
+              </div>
+              {importedBy.length > 0 ? (
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {importedBy.map((imp: any, idx: number) => (
+                    <li key={idx} style={{ fontSize: "12px", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ color: "var(--warning)", fontSize: "14px" }}>📁</span> {imp}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div style={{ fontSize: "12px", color: "var(--text-muted)", fontStyle: "italic" }}>Chưa có file nào phụ thuộc</div>
+              )}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: "12px" }}>
+              Xem trước mã nguồn
+            </div>
+            <pre
+              className="method-source"
+              style={{
+                padding: "16px",
+                margin: 0,
+                fontSize: "12px",
+                fontFamily: "var(--font-mono)",
+                maxHeight: "350px",
+                overflow: "auto",
+                color: "var(--text-primary)",
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+              }}
+            >
+              {isLoadingCode ? (
+                <div style={{ color: "var(--text-muted)", fontStyle: "italic", padding: "12px" }}>Đang tải source code...</div>
+              ) : sourceCode ? (
+                <div style={{ display: "table", width: "100%" }}>
+                  {sourceCode.split("\n").map((line: string, i: number) => {
+                    // Simple syntax coloring for C#
+                    let highlighted = line
+                      .replace(/\b(using|namespace|public|class|private|readonly|return)\b/g, "<span style='color: #c678dd;'>$1</span>")
+                      .replace(/\b(string|int|bool|var)\b/g, "<span style='color: #e5c07b;'>$1</span>")
+                      .replace(/("[^"]*")/g, "<span style='color: #98c379;'>$1</span>");
+                    return (
+                      <div key={i} style={{ display: "table-row" }}>
+                        <span style={{ display: "table-cell", textAlign: "right", paddingRight: "16px", color: "var(--text-muted)", userSelect: "none", width: "40px" }}>{i + 1}</span>
+                        <span style={{ display: "table-cell", whiteSpace: "pre-wrap" }} dangerouslySetInnerHTML={{ __html: highlighted }} />
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ color: "var(--text-muted)", fontStyle: "italic", padding: "12px" }}>// Không có source code</div>
+              )}
+            </pre>
+          </div>
         </div>
       )}
     </div>

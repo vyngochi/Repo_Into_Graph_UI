@@ -4,12 +4,25 @@ import { useAppStore, BusinessFlow } from '../../store/useAppStore';
 const QuizGeneratorView = () => {
   const { serverUrl, businessFlows, setBusinessFlows, showToast } = useAppStore();
   const [selectedFlow, setSelectedFlow] = useState<BusinessFlow | null>(null);
-  const [difficulty, setDifficulty] = useState('medium');
+  const [difficulty, setDifficulty] = useState('Medium');
   const [numQuestions, setNumQuestions] = useState(5);
   const [additionalContext, setAdditionalContext] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingFlows, setIsLoadingFlows] = useState(false);
-  const [generatedQuestions, setGeneratedQuestions] = useState<unknown[]>([]);
+  const [generatedQuestions, setGeneratedQuestions] = useState<any[]>([]);
+
+  // Few-Shot state
+  const [fewShots, setFewShots] = useState<any[]>([]);
+  const [isLoadingFewShots, setIsLoadingFewShots] = useState(false);
+  const [selectedFewShots, setSelectedFewShots] = useState<string[]>([]);
+  const [fewShotSearch, setFewShotSearch] = useState('');
+
+  const filteredFewShots = fewShots.filter(shot => {
+    const qText = shot.question || shot.Question || '';
+    const tagText = shot.tag || shot.Tag || '';
+    const term = fewShotSearch.toLowerCase();
+    return qText.toLowerCase().includes(term) || tagText.toLowerCase().includes(term);
+  });
 
   const loadFlows = async () => {
     setIsLoadingFlows(true);
@@ -25,8 +38,23 @@ const QuizGeneratorView = () => {
     }
   };
 
+  const loadFewShots = async () => {
+    setIsLoadingFewShots(true);
+    try {
+      const res = await window.api?.getFewShots({ baseUrl: serverUrl });
+      if (res?.success && Array.isArray(res.data)) {
+        setFewShots(res.data);
+      }
+    } catch {
+      showToast('Không thể tải danh sách câu hỏi mẫu.', 'error');
+    } finally {
+      setIsLoadingFewShots(false);
+    }
+  };
+
   useEffect(() => {
     if (businessFlows.length === 0) loadFlows();
+    loadFewShots();
   }, []);
 
   const handleGenerate = async () => {
@@ -43,9 +71,12 @@ const QuizGeneratorView = () => {
         numberOfQuestions: numQuestions,
         difficulty,
         additionalContext: additionalContext || null,
+        fewShotExampleIds: selectedFewShots.length > 0 ? selectedFewShots : null,
       });
       if (res?.success) {
-        const questions = Array.isArray(res.data) ? res.data : (res.data as Record<string, unknown>)?.questions as unknown[];
+        const questions = Array.isArray(res.data)
+          ? res.data
+          : (res.data as Record<string, any>)?.questions as any[];
         setGeneratedQuestions(questions || []);
         showToast(`Đã tạo ${(questions || []).length} câu hỏi!`, 'success');
       } else {
@@ -58,31 +89,37 @@ const QuizGeneratorView = () => {
     }
   };
 
-  const difficultyLabel = { easy: 'Dễ', medium: 'Trung bình', hard: 'Khó' };
+  const difficultyLabel: Record<string, string> = {
+    Easy: 'Dễ',
+    Medium: 'Trung bình',
+    Hard: 'Khó'
+  };
 
   return (
     <div className="page active" style={{ padding: '24px 28px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 20, height: '100%' }}>
+      <div className="analyze-layout">
 
         {/* Left: Form */}
-        <div className="card" style={{ height: 'fit-content' }}>
+        <div className="card analyze-form-card">
           <div className="card-header">
-            <div className="card-icon purple">
+            <div className="card-icon blue">
               <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
               </svg>
             </div>
             <div className="card-title">Tạo câu hỏi tự động</div>
           </div>
-          <p className="card-desc">Dùng AI để tạo câu hỏi kiểm tra từ Business Flow.</p>
+          <p className="card-desc">
+            Dùng AI sinh câu hỏi từ Business Flow
+          </p>
 
           {/* Business Flow selection */}
           <div className="form-group">
             <label className="form-label">Business Flow</label>
             {isLoadingFlows ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13 }}>
-                <span className="btn-spinner" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--purple)' }} />
-                Đang tải...
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13, padding: '10px 0' }}>
+                <span className="btn-spinner" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--blue)', width: 14, height: 14 }} />
+                Đang tải danh sách...
               </div>
             ) : (
               <select
@@ -92,6 +129,7 @@ const QuizGeneratorView = () => {
                   const flow = businessFlows.find(f => f.id === e.target.value) || null;
                   setSelectedFlow(flow);
                 }}
+                style={{ cursor: 'pointer' }}
               >
                 <option value="">-- Chọn Business Flow --</option>
                 {businessFlows.map(flow => (
@@ -103,24 +141,24 @@ const QuizGeneratorView = () => {
 
           {/* Difficulty */}
           <div className="form-group">
-            <label className="form-label">Độ khó</label>
+            <label className="form-label">Độ khó mong muốn</label>
             <div style={{ display: 'flex', gap: 8 }}>
-              {(['easy', 'medium', 'hard'] as const).map(d => (
+              {(['Easy', 'Medium', 'Hard'] as const).map(d => (
                 <button
                   key={d}
                   onClick={() => setDifficulty(d)}
                   style={{
                     flex: 1,
-                    padding: '8px 4px',
+                    padding: '10px 4px',
                     borderRadius: 'var(--radius-sm)',
-                    border: `1px solid ${difficulty === d ? 'var(--purple)' : 'var(--border-light)'}`,
-                    background: difficulty === d ? 'var(--purple-dim)' : 'var(--bg-elevated)',
-                    color: difficulty === d ? 'var(--purple-light)' : 'var(--text-secondary)',
+                    border: `1px solid ${difficulty === d ? 'var(--blue)' : 'var(--border)'}`,
+                    background: difficulty === d ? 'var(--blue-dim)' : 'var(--bg-elevated)',
+                    color: difficulty === d ? 'var(--blue-light)' : 'var(--text-secondary)',
                     fontSize: 12,
-                    fontWeight: 500,
+                    fontWeight: 600,
                     fontFamily: 'var(--font-main)',
                     cursor: 'pointer',
-                    transition: 'var(--transition)',
+                    transition: 'all 0.2s ease',
                   }}
                 >
                   {difficultyLabel[d]}
@@ -131,7 +169,7 @@ const QuizGeneratorView = () => {
 
           {/* Number of questions */}
           <div className="form-group">
-            <label className="form-label">Số câu hỏi</label>
+            <label className="form-label">Số lượng câu hỏi</label>
             <input
               type="number"
               className="form-input"
@@ -142,61 +180,172 @@ const QuizGeneratorView = () => {
             />
           </div>
 
+          {/* Few-Shot template selection */}
+          <div className="form-group">
+            <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span>Câu hỏi mẫu (Few-Shot)</span>
+              {selectedFewShots.length > 0 && (
+                <span style={{ fontSize: '11px', color: 'var(--blue)', fontWeight: 700, textTransform: 'none' }}>
+                  Đã chọn {selectedFewShots.length}
+                </span>
+              )}
+            </label>
+
+            <div className="search-box" style={{ marginBottom: '10px' }}>
+              <svg className="search-icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+              </svg>
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Tìm câu hỏi hoặc tag..."
+                value={fewShotSearch}
+                onChange={e => setFewShotSearch(e.target.value)}
+                style={{ background: 'var(--bg-elevated)' }}
+              />
+            </div>
+
+            {isLoadingFewShots ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13, padding: '10px 0' }}>
+                <span className="btn-spinner" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--blue)', width: 14, height: 14 }} />
+                Đang tải danh sách...
+              </div>
+            ) : fewShots.length === 0 ? (
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '12px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--border)', textAlign: 'center' }}>
+                Chưa có câu hỏi mẫu nào được lưu
+              </div>
+            ) : filteredFewShots.length === 0 ? (
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '12px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--border)', textAlign: 'center' }}>
+                Không tìm thấy câu hỏi mẫu phù hợp
+              </div>
+            ) : (
+              <div
+                style={{
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  paddingRight: '4px'
+                }}
+              >
+                {filteredFewShots.map(shot => {
+                  const id = shot.id || shot.Id;
+                  const isChecked = selectedFewShots.includes(id);
+                  const qText = shot.question || shot.Question || '';
+                  const tagText = shot.tag || shot.Tag;
+                  return (
+                    <div
+                      key={id}
+                      className="card-flat"
+                      onClick={() => {
+                        if (isChecked) {
+                          setSelectedFewShots(selectedFewShots.filter(x => x !== id));
+                        } else {
+                          setSelectedFewShots([...selectedFewShots, id]);
+                        }
+                      }}
+                      style={{
+                        padding: '12px 14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '12px',
+                        border: isChecked ? '1px solid var(--blue)' : '1px solid var(--border)',
+                        background: isChecked ? 'var(--blue-dim)' : 'var(--bg-elevated)',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        readOnly
+                        style={{ marginTop: '2px', accentColor: 'var(--blue)', pointerEvents: 'none' }}
+                      />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span style={{ 
+                          fontSize: '13px', 
+                          fontWeight: isChecked ? 600 : 500, 
+                          color: isChecked ? 'var(--blue-light)' : 'var(--text-primary)',
+                          lineHeight: 1.4, 
+                          wordBreak: 'break-word',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}>
+                          {qText}
+                        </span>
+                        {tagText && (
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                            #{tagText}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Additional context */}
           <div className="form-group">
-            <label className="form-label">
-              Ngữ cảnh bổ sung <span className="optional">(tùy chọn)</span>
-            </label>
+            <label className="form-label">Ngữ cảnh bổ sung <span className="optional">(tùy chọn)</span></label>
             <textarea
               className="form-input"
               rows={3}
-              placeholder="Thêm hướng dẫn hoặc ngữ cảnh cho AI..."
+              placeholder="Thêm hướng dẫn, văn phong hoặc yêu cầu đặc biệt..."
               value={additionalContext}
               onChange={e => setAdditionalContext(e.target.value)}
               style={{ resize: 'vertical' }}
             />
           </div>
 
-          <button className="btn-primary btn-lg" onClick={handleGenerate} disabled={isLoading || !selectedFlow}>
-            {isLoading ? <span className="btn-spinner" /> : (
-              <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-              </svg>
-            )}
+          <button
+            className="btn-primary btn-lg"
+            onClick={handleGenerate}
+            disabled={isLoading || !selectedFlow}
+            style={{ marginTop: 'auto' }}
+          >
+            {isLoading ? <span className="btn-spinner" /> : null}
             {isLoading ? 'Đang tạo câu hỏi...' : 'Tạo câu hỏi'}
           </button>
         </div>
 
         {/* Right: Results */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
+        <div className="analyze-result-panel" style={{ overflowY: 'auto', paddingRight: 4 }}>
           {!isLoading && generatedQuestions.length === 0 && (
             <div className="card">
               <div className="empty-state">
                 <div className="empty-art">
-                  <svg viewBox="0 0 64 64" width="48" height="48" fill="none">
-                    <rect x="8" y="8" width="48" height="48" rx="8" stroke="var(--border-light)" strokeWidth="2" />
-                    <path d="M24 22h16M24 30h16M24 38h10" stroke="var(--border-light)" strokeWidth="2" strokeLinecap="round" />
-                    <circle cx="18" cy="22" r="2" fill="var(--purple)" opacity="0.4" />
-                    <circle cx="18" cy="30" r="2" fill="var(--purple)" opacity="0.4" />
-                    <circle cx="18" cy="38" r="2" fill="var(--purple)" opacity="0.4" />
+                  <svg viewBox="0 0 80 80" width="64" height="64" fill="none">
+                    <rect x="16" y="16" width="48" height="48" rx="8" stroke="var(--blue)" strokeWidth="2" opacity="0.4" />
+                    <path d="M32 30h16M32 40h16M32 50h10" stroke="var(--blue)" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+                    <circle cx="26" cy="30" r="2" fill="var(--cyan)" />
+                    <circle cx="26" cy="40" r="2" fill="var(--cyan)" />
+                    <circle cx="26" cy="50" r="2" fill="var(--cyan)" />
                   </svg>
                 </div>
-                <div className="empty-title">Chưa có câu hỏi nào</div>
-                <div className="empty-desc">Chọn Business Flow và nhấn <strong>Tạo câu hỏi</strong> để bắt đầu.</div>
+                <div className="empty-title">Chưa có câu hỏi nào được sinh ra</div>
+                <div className="empty-desc">
+                  Chọn Business Flow và thiết lập tham số ở cột trái, sau đó nhấn <strong>Tạo câu hỏi</strong> để bắt đầu sinh.
+                </div>
               </div>
             </div>
           )}
 
           {isLoading && (
             <div className="card">
-              <div className="loading-state">
-                <div className="spinner-large" />
-                <span>AI đang tạo câu hỏi...</span>
+              <div className="loading-state" style={{ padding: '48px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+                <span className="btn-spinner" style={{ width: 32, height: 32, borderColor: 'var(--border)', borderTopColor: 'var(--blue)' }} />
+                <span style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: 600 }}>AI đang phân tích luồng nghiệp vụ...</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Việc này có thể mất từ 10-30 giây tùy thuộc vào độ phức tạp.</span>
               </div>
             </div>
           )}
 
-          {generatedQuestions.map((q, i) => (
+          {!isLoading && generatedQuestions.map((q, i) => (
             <QuestionCard key={i} q={q} index={i} defaultDifficulty={difficulty} />
           ))}
         </div>
@@ -220,7 +369,7 @@ const QuestionCard = ({ q, index, defaultDifficulty }: { q: any; index: number; 
       case 'khó':
         return 'red';
       default:
-        return 'purple';
+        return 'blue';
     }
   };
 
@@ -241,12 +390,6 @@ const QuestionCard = ({ q, index, defaultDifficulty }: { q: any; index: number; 
     <div
       className="card"
       style={{
-        background: 'rgba(255, 255, 255, 0.7)',
-        backdropFilter: 'blur(16px)',
-        border: '1px solid rgba(255, 255, 255, 0.4)',
-        borderRadius: 'var(--radius)',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.02)',
-        padding: '20px',
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
@@ -255,24 +398,15 @@ const QuestionCard = ({ q, index, defaultDifficulty }: { q: any; index: number; 
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className="badge badge-purple" style={{ padding: '4px 8px', fontSize: '11px', fontWeight: 700 }}>Câu {index + 1}</span>
-          <span className={`badge ${getDifficultyColor(diffText)}`} style={{ padding: '4px 8px', fontSize: '11px', fontWeight: 600 }}>
+          <span style={{ padding: '4px 8px', fontSize: '11px', fontWeight: 700, background: 'var(--blue-dim)', color: 'var(--blue-light)', borderRadius: '4px' }}>Câu {index + 1}</span>
+          <span style={{ padding: '4px 8px', fontSize: '11px', fontWeight: 600, background: `var(--${getDifficultyColor(diffText)}-dim)`, color: `var(--${getDifficultyColor(diffText)})`, borderRadius: '4px' }}>
             {getDifficultyLabel(diffText)}
           </span>
         </div>
         <button
           onClick={() => setShowAnswer(!showAnswer)}
-          style={{
-            padding: '4px 12px',
-            fontSize: '12px',
-            fontWeight: 600,
-            background: showAnswer ? 'var(--purple-dim)' : 'none',
-            border: '1px solid var(--purple)',
-            color: 'var(--purple-light)',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}
+          className="btn-secondary"
+          style={{ padding: '6px 12px', fontSize: '12px' }}
         >
           {showAnswer ? 'Ẩn đáp án gợi ý' : 'Hiện đáp án gợi ý'}
         </button>
@@ -284,10 +418,9 @@ const QuestionCard = ({ q, index, defaultDifficulty }: { q: any; index: number; 
 
       {showAnswer && answerText && (
         <div style={{
-          background: 'rgba(0, 0, 0, 0.02)',
-          borderLeft: '3px solid var(--purple)',
+          background: 'rgba(86, 93, 141, 0.02)',
           padding: '12px 16px',
-          borderRadius: '0 8px 8px 0',
+          borderRadius: '8px',
           fontSize: '13px',
           color: 'var(--text-secondary)',
           lineHeight: 1.6,
