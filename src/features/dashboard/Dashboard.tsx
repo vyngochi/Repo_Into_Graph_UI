@@ -56,7 +56,11 @@ const Dashboard = () => {
     try {
       const result = await window.api?.getFewShots({ baseUrl: serverUrl });
       if (result?.success) {
-        setFewShots(Array.isArray(result.data) ? result.data : []);
+        const data = result.data;
+        if (Array.isArray(data)) setFewShots(data);
+        else if (data && Array.isArray((data as any).items)) setFewShots((data as any).items);
+        else if (data && Array.isArray((data as any).Items)) setFewShots((data as any).Items);
+        else setFewShots([]);
       } else {
         console.warn('Cannot fetch few shots:', result?.error);
       }

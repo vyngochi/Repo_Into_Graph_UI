@@ -70,6 +70,161 @@ function FileIcon({ ext, size = 14 }: { ext: string; size?: number }) {
   );
 }
 
+
+type TreeNodeInfo = {
+  name: string;
+  path: string;
+  type: "file" | "folder";
+  children?: TreeNodeInfo[];
+};
+
+const buildFileTree = (paths: string[]): TreeNodeInfo[] => {
+  const root: Record<string, any> = {};
+  
+  paths.forEach((path) => {
+    const parts = path.split('/');
+    let currentLevel = root;
+    
+    parts.forEach((part, index) => {
+      const isFile = index === parts.length - 1;
+      const currentPath = parts.slice(0, index + 1).join('/');
+      
+      if (!currentLevel[part]) {
+        currentLevel[part] = {
+          name: part,
+          path: currentPath,
+          type: isFile ? "file" : "folder",
+          children: isFile ? undefined : {}
+        };
+      }
+      
+      if (!isFile) {
+        currentLevel = currentLevel[part].children;
+      }
+    });
+  });
+  
+  const sortNodes = (nodes: Record<string, any>): TreeNodeInfo[] => {
+    return Object.values(nodes)
+      .sort((a, b) => {
+        if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      })
+      .map(node => {
+        if (node.children) node.children = sortNodes(node.children);
+        return node;
+      });
+  };
+  
+  return sortNodes(root);
+};
+
+const FileTreeNode = ({ 
+  node, 
+  level, 
+  selectedPath, 
+  onSelect 
+}: { 
+  node: TreeNodeInfo; 
+  level: number;
+  selectedPath: string;
+  onSelect: (path: string) => void;
+}) => {
+  const [isOpen, setIsOpen] = useState(true);
+  const isSelected = selectedPath === node.path;
+  
+  if (node.type === "file") {
+    const ext = "." + (node.name.split(".").pop() || "");
+    return (
+      <div
+        onClick={() => onSelect(node.path)}
+        style={{
+          padding: `5px 14px 5px ${14 + level * 16}px`,
+          fontSize: 12.5,
+          cursor: "pointer",
+          background: isSelected ? "#eff6ff" : "transparent",
+          borderLeft: `2px solid ${isSelected ? "#1E90FF" : "transparent"}`,
+          color: isSelected ? "#1e40af" : "#475569",
+          display: "flex",
+          alignItems: "center",
+          gap: 7,
+          fontFamily: "var(--font-mono)",
+          fontWeight: isSelected ? 600 : 400,
+          transition: "all 0.12s",
+        }}
+        onMouseEnter={(e) => {
+          if (!isSelected) e.currentTarget.style.background = "#f8fafc";
+        }}
+        onMouseLeave={(e) => {
+          if (!isSelected) e.currentTarget.style.background = "transparent";
+        }}
+        title={node.path}
+      >
+        <FileIcon ext={ext} size={13} />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {node.name}
+        </span>
+      </div>
+    );
+  }
+  
+  return (
+    <div>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          padding: `5px 14px 5px ${14 + level * 16}px`,
+          fontSize: 12.5,
+          cursor: "pointer",
+          color: "#1e293b",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          fontWeight: 600,
+          transition: "background 0.12s",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+        title={node.path}
+      >
+        <svg
+          viewBox="0 0 16 16"
+          width="14"
+          height="14"
+          fill="none"
+          style={{
+            transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+            transition: "transform 0.2s",
+            color: "#64748b"
+          }}
+        >
+          <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
+          <path d="M2 3.5C2 2.67157 2.67157 2 3.5 2H6.17157C6.56943 2 6.95104 2.15804 7.23223 2.43934L8.76777 3.97487C8.95526 4.16236 9.20956 4.26777 9.47487 4.26777H12.5C13.3284 4.26777 14 4.93934 14 5.76777V12.5C14 13.3284 13.3284 14 12.5 14H3.5C2.67157 14 2 13.3284 2 12.5V3.5Z" fill="#fbbf24" opacity="0.2"/>
+          <path d="M6.17157 2H3.5C2.67157 2 2 2.67157 2 3.5V12.5C2 13.3284 2.67157 14 3.5 14H12.5C13.3284 14 14 13.3284 14 12.5V5.76777C14 4.93934 13.3284 4.26777 12.5 4.26777H9.47487C9.20956 4.26777 8.95526 4.16236 8.76777 3.97487L7.23223 2.43934C6.95104 2.15804 6.56943 2 6.17157 2Z" stroke="#f59e0b" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {node.name}
+        </span>
+      </div>
+      {isOpen && node.children && (
+        <div>
+          {node.children.map(child => (
+            <FileTreeNode 
+              key={child.path} 
+              node={child} 
+              level={level + 1} 
+              selectedPath={selectedPath} 
+              onSelect={onSelect} 
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const CodeViewer = ({
   selectedNode,
   nodes,
@@ -111,13 +266,15 @@ const CodeViewer = ({
       });
   }, [selectedNode, scanPath]);
 
-  const filteredFileTree = useMemo(() => {
+  
+  const treeNodes = useMemo(() => {
     const all = nodes.map((n) => n.id).sort();
-    if (!searchQuery.trim()) return all;
-    return all.filter((f) =>
-      f.toLowerCase().includes(searchQuery.toLowerCase()),
+    if (!searchQuery.trim()) return buildFileTree(all);
+    return buildFileTree(
+      all.filter((f) => f.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   }, [nodes, searchQuery]);
+
 
   const language = langMap[selectedNode.ext?.toLowerCase()] || "javascript";
   const extColor = extColorMap[selectedNode.ext?.toLowerCase()] || "#6b7280";
@@ -367,51 +524,16 @@ const CodeViewer = ({
 
         {/* File tree */}
         <div style={{ flex: 1, overflowY: "auto", paddingBottom: 8 }}>
-          {filteredFileTree.map((file) => {
-            const isSelected = file === selectedNode.id;
-            const name = file.split("/").pop() || file;
-            const ext = "." + (name.split(".").pop() || "");
-            return (
-              <div
-                key={file}
-                onClick={() => onSelectNode(file)}
-                style={{
-                  padding: "5px 14px",
-                  fontSize: 12.5,
-                  cursor: "pointer",
-                  background: isSelected ? "#eff6ff" : "transparent",
-                  borderLeft: `2px solid ${isSelected ? "#1E90FF" : "transparent"}`,
-                  color: isSelected ? "#1e40af" : "#475569",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 7,
-                  fontFamily: "var(--font-mono)",
-                  fontWeight: isSelected ? 600 : 400,
-                  transition: "all 0.12s",
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSelected) e.currentTarget.style.background = "#f8fafc";
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSelected)
-                    e.currentTarget.style.background = "transparent";
-                }}
-                title={file}
-              >
-                <FileIcon ext={ext} size={13} />
-                <span
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {name}
-                </span>
-              </div>
-            );
-          })}
-          {filteredFileTree.length === 0 && (
+          {treeNodes.map((node) => (
+            <FileTreeNode
+              key={node.path}
+              node={node}
+              level={0}
+              selectedPath={selectedNode.id}
+              onSelect={onSelectNode}
+            />
+          ))}
+          {treeNodes.length === 0 && (
             <div
               style={{
                 padding: "20px 16px",

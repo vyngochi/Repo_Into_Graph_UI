@@ -156,44 +156,44 @@ ipcMain.handle('api:getFeatureById', async (_event, { baseUrl, id }) => {
   }
 });
 
-// GET /api/features/:id/codeflow
+// GET /api/businesses/:id/codeflow
 ipcMain.handle('api:getCodeFlow', async (_event, { baseUrl, id }) => {
   try {
-    const result = await makeRequest('GET', `${baseUrl}/api/features/${id}/codeflow`);
+    const result = await makeRequest('GET', `${baseUrl}/api/businesses/${id}/codeflow`);
     return { success: true, ...result };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
-// GET /api/businessflows
+// GET /api/businesses
 ipcMain.handle('api:getBusinessFlows', async (_event, { baseUrl }) => {
   try {
-    const result = await makeRequest('GET', `${baseUrl}/api/businessflows`);
+    const result = await makeRequest('GET', `${baseUrl}/api/businesses`);
     return { success: true, ...result };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
-// GET /api/businessflows/:id
+// GET /api/businesses/:id
 ipcMain.handle('api:getBusinessFlowById', async (_event, { baseUrl, id }) => {
   try {
-    const result = await makeRequest('GET', `${baseUrl}/api/businessflows/${id}`);
+    const result = await makeRequest('GET', `${baseUrl}/api/businesses/${id}`);
     return { success: true, ...result };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
-// POST /api/QuestionGenerator/generate/from-business-flow
+// POST /api/QuestionGenerator/generate
 ipcMain.handle('api:generateQuestions', async (_event, { baseUrl, businessFlowId, numberOfQuestions, difficulty, additionalContext, fewShotExampleIds }) => {
   try {
-    const result = await makeRequest('POST', `${baseUrl}/api/QuestionGenerator/generate/from-business-flow`, {
-      businessFlowId,
+    const result = await makeRequest('POST', `${baseUrl}/api/QuestionGenerator/generate`, {
+      businessId: businessFlowId,
       numberOfQuestions,
       difficulty,
-      additionalContext: additionalContext || null,
+      description: additionalContext || null,
       fewShotExampleIds: fewShotExampleIds || null
     });
     return { success: true, ...result };
