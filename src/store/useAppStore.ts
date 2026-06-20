@@ -3,16 +3,17 @@ import { create } from "zustand";
 // --- Types ---
 export interface FeatureItem {
     id: string;
-    featureName: string;
+    name: string;
     description?: string;
     createdAt?: string;
 }
 
 export interface BusinessFlow {
     id: string;
-    name: string;
+    businessName: string;
     description?: string;
     featureId?: string;
+    createdAt?: string;
 }
 
 export interface AnalysisResult {

@@ -28,8 +28,14 @@ const QuizGeneratorView = () => {
     setIsLoadingFlows(true);
     try {
       const res = await window.api?.getBusinessFlows({ baseUrl: serverUrl });
-      if (res?.success && Array.isArray(res.data)) {
-        setBusinessFlows(res.data as BusinessFlow[]);
+      if (res?.success && res.status === 200) {
+        const data = res.data;
+        if (Array.isArray(data)) setBusinessFlows(data as BusinessFlow[]);
+        else if (data && Array.isArray((data as any).items)) setBusinessFlows((data as any).items as BusinessFlow[]);
+        else if (data && Array.isArray((data as any).Items)) setBusinessFlows((data as any).Items as BusinessFlow[]);
+        else setBusinessFlows([]);
+      } else {
+        showToast(`Lỗi load flows (${res?.status}): ${JSON.stringify(res?.data)}`, "error");
       }
     } catch {
       showToast('Không thể tải danh sách business flows.', 'error');
@@ -42,8 +48,12 @@ const QuizGeneratorView = () => {
     setIsLoadingFewShots(true);
     try {
       const res = await window.api?.getFewShots({ baseUrl: serverUrl });
-      if (res?.success && Array.isArray(res.data)) {
-        setFewShots(res.data);
+      if (res?.success) {
+        const data = res.data;
+        if (Array.isArray(data)) setFewShots(data);
+        else if (data && Array.isArray((data as any).items)) setFewShots((data as any).items);
+        else if (data && Array.isArray((data as any).Items)) setFewShots((data as any).Items);
+        else setFewShots([]);
       }
     } catch {
       showToast('Không thể tải danh sách câu hỏi mẫu.', 'error');
@@ -133,7 +143,7 @@ const QuizGeneratorView = () => {
               >
                 <option value="">-- Chọn Business Flow --</option>
                 {businessFlows.map(flow => (
-                  <option key={flow.id} value={flow.id}>{flow.name}</option>
+                  <option key={flow.id} value={flow.id}>{flow.businessName}</option>
                 ))}
               </select>
             )}
@@ -263,11 +273,11 @@ const QuizGeneratorView = () => {
                         style={{ marginTop: '2px', accentColor: 'var(--blue)', pointerEvents: 'none' }}
                       />
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <span style={{ 
-                          fontSize: '13px', 
-                          fontWeight: isChecked ? 600 : 500, 
+                        <span style={{
+                          fontSize: '13px',
+                          fontWeight: isChecked ? 600 : 500,
                           color: isChecked ? 'var(--blue-light)' : 'var(--text-primary)',
-                          lineHeight: 1.4, 
+                          lineHeight: 1.4,
                           wordBreak: 'break-word',
                           display: '-webkit-box',
                           WebkitLineClamp: 2,
