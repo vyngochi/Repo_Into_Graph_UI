@@ -52,6 +52,10 @@ interface AppState {
     toast: { message: string; type: "success" | "error" | "info" } | null;
     showToast: (message: string, type?: "success" | "error" | "info") => void;
     clearToast: () => void;
+
+    // UI state
+    isSidebarCollapsed: boolean;
+    setIsSidebarCollapsed: (v: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -78,4 +82,7 @@ export const useAppStore = create<AppState>((set) => ({
         setTimeout(() => set({ toast: null }), 3500);
     },
     clearToast: () => set({ toast: null }),
+
+    isSidebarCollapsed: false,
+    setIsSidebarCollapsed: (v) => set({ isSidebarCollapsed: v }),
 }));
