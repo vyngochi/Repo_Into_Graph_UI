@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 export const parseMermaid = (mermaidText: string) => {
   const nodes: { id: string; label: string }[] = [];
@@ -9,21 +9,32 @@ export const parseMermaid = (mermaidText: string) => {
 
   const lines = mermaidText.split("\n");
 
-  const nodeDefRegex = /([a-zA-Z0-9_\-]+)\s*(?:\["([^"]+)"\]|\[([^\]]+)\]|\("([^"]+)"\)|\(([^)]+)\)|\{"([^"]+)"\}|\{([^}]+)\})/g;
+  const nodeDefRegex =
+    /([a-zA-Z0-9_\-]+)\s*(?:\["([^"]+)"\]|\[([^\]]+)\]|\("([^"]+)"\)|\(([^)]+)\)|\{"([^"]+)"\}|\{([^}]+)\})/g;
 
   const edgeRegex = /([a-zA-Z0-9_\-]+)\s*(?:-->|-\.->|==>)\s*([a-zA-Z0-9_\-]+)/;
-  const edgeWithLabelRegex = /([a-zA-Z0-9_\-]+)\s*(?:--|-\.)\s*([^-\s>]+)\s*(?:-->|\.->)\s*([a-zA-Z0-9_\-]+)/;
-  const edgePipeLabelRegex = /([a-zA-Z0-9_\-]+)\s*(?:-->|-\.->|==>)\|([^|]+)\|\s*([a-zA-Z0-9_\-]+)/;
+  const edgeWithLabelRegex =
+    /([a-zA-Z0-9_\-]+)\s*(?:--|-\.)\s*([^-\s>]+)\s*(?:-->|\.->)\s*([a-zA-Z0-9_\-]+)/;
+  const edgePipeLabelRegex =
+    /([a-zA-Z0-9_\-]+)\s*(?:-->|-\.->|==>)\|([^|]+)\|\s*([a-zA-Z0-9_\-]+)/;
 
   for (let line of lines) {
     line = line.trim();
-    if (!line || line.startsWith("graph ") || line.startsWith("flowchart ")) continue;
+    if (!line || line.startsWith("graph ") || line.startsWith("flowchart "))
+      continue;
 
     let match;
     nodeDefRegex.lastIndex = 0;
     while ((match = nodeDefRegex.exec(line)) !== null) {
       const id = match[1];
-      const label = match[2] || match[3] || match[4] || match[5] || match[6] || match[7] || id;
+      const label =
+        match[2] ||
+        match[3] ||
+        match[4] ||
+        match[5] ||
+        match[6] ||
+        match[7] ||
+        id;
       if (!nodeSet.has(id)) {
         nodeSet.add(id);
         nodes.push({ id, label });
@@ -33,7 +44,11 @@ export const parseMermaid = (mermaidText: string) => {
     const pipeMatch = line.match(edgePipeLabelRegex);
     if (pipeMatch) {
       const [, source, label, target] = pipeMatch;
-      edges.push({ source: source.trim(), target: target.trim(), label: label.trim() });
+      edges.push({
+        source: source.trim(),
+        target: target.trim(),
+        label: label.trim(),
+      });
       if (!nodeSet.has(source.trim())) {
         nodeSet.add(source.trim());
         nodes.push({ id: source.trim(), label: source.trim() });
@@ -48,7 +63,11 @@ export const parseMermaid = (mermaidText: string) => {
     const arrowLabelMatch = line.match(edgeWithLabelRegex);
     if (arrowLabelMatch) {
       const [, source, label, target] = arrowLabelMatch;
-      edges.push({ source: source.trim(), target: target.trim(), label: label.replace(/"/g, "").trim() });
+      edges.push({
+        source: source.trim(),
+        target: target.trim(),
+        label: label.replace(/"/g, "").trim(),
+      });
       if (!nodeSet.has(source.trim())) {
         nodeSet.add(source.trim());
         nodes.push({ id: source.trim(), label: source.trim() });
@@ -84,7 +103,7 @@ const getEdgePoint = (
   toX: number,
   toY: number,
   w: number,
-  h: number
+  h: number,
 ) => {
   const dx = toX - fromX;
   const dy = toY - fromY;
@@ -113,7 +132,7 @@ const parseNodeLabel = (label: string) => {
 const computeLayout = (
   nodes: { id: string; label: string }[],
   edges: { source: string; target: string }[],
-  direction: "LR" | "TD"
+  direction: "LR" | "TD",
 ) => {
   const nodePositions: Record<string, { x: number; y: number }> = {};
   if (nodes.length === 0) return nodePositions;
@@ -183,19 +202,22 @@ const computeLayout = (
   for (let i = 1; i <= maxLvl; i++) {
     const prevLevelNodes = levels[i - 1] || [];
     const currentLevelNodes = levels[i] || [];
-    
+
     currentLevelNodes.sort((a, b) => {
       const getAvgParentPos = (nodeId: string) => {
-        const p = parents[nodeId].filter(pId => prevLevelNodes.includes(pId));
+        const p = parents[nodeId].filter((pId) => prevLevelNodes.includes(pId));
         if (p.length === 0) return 0;
-        const sum = p.reduce((acc, pId) => acc + prevLevelNodes.indexOf(pId), 0);
+        const sum = p.reduce(
+          (acc, pId) => acc + prevLevelNodes.indexOf(pId),
+          0,
+        );
         return sum / p.length;
       };
       return getAvgParentPos(a) - getAvgParentPos(b);
     });
   }
 
-  const stepX = 350; 
+  const stepX = 350;
   const stepY = 160;
 
   if (direction === "LR") {
@@ -228,6 +250,8 @@ const computeLayout = (
 };
 
 interface FeatureInteractiveGraphProps {
+  onNodeClick?: (nodeId: string, label: string) => void;
+  onToggleFullscreen?: (isFull: boolean) => void;
   parsedGraph: {
     nodes: { id: string; label: string }[];
     edges: { source: string; target: string; label?: string }[];
@@ -238,7 +262,12 @@ interface FeatureInteractiveGraphProps {
 export const FeatureInteractiveGraph = ({
   parsedGraph,
   entryPoint,
+  onNodeClick,
+  onToggleFullscreen,
 }: FeatureInteractiveGraphProps) => {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isDraggingNode, setIsDraggingNode] = useState(false);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -273,12 +302,23 @@ export const FeatureInteractiveGraph = ({
       const positions = computeLayout(
         parsedGraph.nodes,
         parsedGraph.edges,
-        layoutDir
+        layoutDir,
       );
       setNodePositions(positions);
       hasAutoFitted.current = false;
     }
   }, [parsedGraph, layoutDir]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isFullscreen) {
+        setIsFullscreen(false);
+        onToggleFullscreen?.(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFullscreen, onToggleFullscreen]);
 
   const autoFit = useCallback(
     (positions: Record<string, { x: number; y: number }>) => {
@@ -319,7 +359,7 @@ export const FeatureInteractiveGraph = ({
         scale: nextScale,
       });
     },
-    [dimensions]
+    [dimensions],
   );
 
   useEffect(() => {
@@ -362,7 +402,7 @@ export const FeatureInteractiveGraph = ({
       y: number,
       w: number,
       h: number,
-      r: number
+      r: number,
     ) => {
       c.beginPath();
       c.moveTo(x + r, y);
@@ -457,7 +497,7 @@ export const FeatureInteractiveGraph = ({
         pos.x,
         pos.y,
         pos.x,
-        pos.y + NODE_HEIGHT
+        pos.y + NODE_HEIGHT,
       );
       let borderColor = "#cbd5e1";
       let borderWidth = 1.5;
@@ -578,6 +618,7 @@ export const FeatureInteractiveGraph = ({
 
     if (clickedNode) {
       setDraggedNodeId(clickedNode[0]);
+      setIsDraggingNode(false);
       setDragOffset({
         x: gx - clickedNode[1].x,
         y: gy - clickedNode[1].y,
@@ -605,6 +646,7 @@ export const FeatureInteractiveGraph = ({
     const NODE_HEIGHT = 48;
 
     if (draggedNodeId) {
+      setIsDraggingNode(true);
       setNodePositions((prev) => ({
         ...prev,
         [draggedNodeId]: {
@@ -631,7 +673,14 @@ export const FeatureInteractiveGraph = ({
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.MouseEvent,
+  ) => {
+    if (draggedNodeId && !isDraggingNode && onNodeClick) {
+      const node = parsedGraph.nodes.find((n) => n.id === draggedNodeId);
+      if (node) onNodeClick(node.id, node.label);
+    }
+
     setDraggedNodeId(null);
     setIsPanning(false);
   };
@@ -675,13 +724,19 @@ export const FeatureInteractiveGraph = ({
       ref={containerRef}
       style={{
         width: "100%",
-        height: "500px",
-        position: "relative",
-        border: "1px solid rgba(226, 232, 240, 0.8)",
-        borderRadius: "12px",
+        height: isFullscreen ? "100%" : "500px",
+        position: isFullscreen ? "fixed" : "relative",
+        top: isFullscreen ? 0 : "auto",
+        left: isFullscreen ? 0 : "auto",
+        right: isFullscreen ? 0 : "auto",
+        bottom: isFullscreen ? 0 : "auto",
+        zIndex: isFullscreen ? 9999 : 1,
+        border: isFullscreen ? "none" : "1px solid rgba(226, 232, 240, 0.8)",
+        borderRadius: isFullscreen ? 0 : "12px",
         background: "radial-gradient(#e2e8f0 1.2px, #f8fafc 1.2px)",
         backgroundSize: "20px 20px",
         overflow: "hidden",
+        boxSizing: "border-box",
       }}
     >
       <canvas
@@ -692,7 +747,12 @@ export const FeatureInteractiveGraph = ({
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
         onDoubleClick={() => autoFit(nodePositions)}
-        style={{ display: "block", cursor: isPanning ? "grabbing" : "default" }}
+        style={{
+          display: "block",
+          cursor: isPanning ? "grabbing" : "default",
+          width: "100%",
+          height: "100%",
+        }}
       />
 
       {/* Floating Toolbar */}
@@ -834,6 +894,53 @@ export const FeatureInteractiveGraph = ({
             <path d="M5 12h14" />
           </svg>
         </button>
+
+        <div
+          style={{
+            width: 1,
+            background: "rgba(0,0,0,0.08)",
+            margin: "4px 2px",
+          }}
+        />
+
+        <button
+          onClick={() => {
+            const newVal = !isFullscreen;
+            setIsFullscreen(newVal);
+            onToggleFullscreen?.(newVal);
+          }}
+          style={{
+            border: "none",
+            background: "transparent",
+            padding: "6px",
+            borderRadius: "6px",
+            cursor: "pointer",
+            color: "#475569",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all 0.15s",
+          }}
+          title={isFullscreen ? "Thu nhỏ (Esc)" : "Phóng to toàn màn hình"}
+        >
+          {isFullscreen ? (
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+              <path
+                fillRule="evenodd"
+                d="M5 8a1 1 0 011-1h3V4a1 1 0 112 0v3h3a1 1 0 110 2H6a1 1 0 01-1-1zm0 4a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+              <path
+                fillRule="evenodd"
+                d="M3 4a1 1 0 011-1h4a1 1 0 110 2H5v3a1 1 0 11-2 0V4zm14 0a1 1 0 00-1-1h-4a1 1 0 100 2h3v3a1 1 0 102 0V4zM4 16a1 1 0 001 1h4a1 1 0 100-2H5v-3a1 1 0 10-2 0v4zm12 1a1 1 0 001-1v-4a1 1 0 10-2 0v3h-3a1 1 0 100 2h4z"
+                clipRule="evenodd"
+              />
+            </svg>
+          )}
+        </button>
       </div>
 
       {/* Floating Instructions Legend (bottom-right) */}
@@ -875,4 +982,3 @@ export const FeatureInteractiveGraph = ({
     </div>
   );
 };
-

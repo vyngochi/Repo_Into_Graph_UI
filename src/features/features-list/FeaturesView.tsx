@@ -1,18 +1,144 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useAppStore, FeatureItem } from "../../store/useAppStore";
-import { parseMermaid, FeatureInteractiveGraph } from "./FeatureInteractiveGraph";
+import {
+  parseMermaid,
+  FeatureInteractiveGraph,
+} from "./FeatureInteractiveGraph";
 
 const FeaturesView = () => {
-  const { serverUrl, features, setFeatures, showToast } =
+  const { serverUrl, features, setFeatures, showToast, selectedRepoPath } =
     useAppStore();
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<FeatureItem | null>(null);
   const [featureDetail, setFeatureDetail] = useState<unknown>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [activeViewTab, setActiveViewTab] = useState<"graph" | "visual" | "mermaid">(
-    "graph",
-  );
+  const [activeViewTab, setActiveViewTab] = useState<
+    "graph" | "visual" | "mermaid"
+  >("graph");
+
+  const [selectedNodeCode, setSelectedNodeCode] = useState<{
+    code: string;
+    highlightLine: number;
+    className: string;
+    method: string;
+    filePath: string;
+  } | null>(null);
+  const [isCodeLoading, setIsCodeLoading] = useState(false);
+  const [isGraphFullscreen, setIsGraphFullscreen] = useState(false);
+  const [codePanelWidth, setCodePanelWidth] = useState(600);
+  const [isResizingPanel, setIsResizingPanel] = useState(false);
+
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingPanel) return;
+
+      let panelLeft = 0;
+      if (panelRef.current) {
+        panelLeft = panelRef.current.getBoundingClientRect().left;
+      }
+
+      let newWidth = e.clientX - panelLeft;
+      if (newWidth < 300) newWidth = 300;
+      if (newWidth > 1200) newWidth = 1200;
+      if (panelRef.current) {
+        panelRef.current.style.width = `${newWidth}px`;
+      }
+    };
+    const handleMouseUp = (e: MouseEvent) => {
+      if (isResizingPanel) {
+        setIsResizingPanel(false);
+
+        let panelLeft = 0;
+        if (panelRef.current) {
+          panelLeft = panelRef.current.getBoundingClientRect().left;
+        }
+
+        let newWidth = e.clientX - panelLeft;
+        if (newWidth < 300) newWidth = 300;
+        if (newWidth > 1200) newWidth = 1200;
+        setCodePanelWidth(newWidth);
+      }
+    };
+
+    if (isResizingPanel) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizingPanel]);
+
+  const handleNodeClick = async (nodeId: string, label: string) => {
+    if (!selectedRepoPath) {
+      showToast("Không có thư mục được chọn trong Workspace.", "error");
+      return;
+    }
+
+    const parts = label.split(".");
+    if (parts.length < 2) return;
+    const method = parts.pop()!;
+    const className = parts.pop()!;
+
+    setIsCodeLoading(true);
+    try {
+      const scanRes = await window.graphApi?.scanLocal(selectedRepoPath.trim());
+      if (scanRes?.success && scanRes.nodes) {
+        const fileNode = scanRes.nodes.find(
+          (n: any) =>
+            n.id.endsWith(`/${className}.cs`) ||
+            n.id.endsWith(`\\${className}.cs`) ||
+            n.id === `${className}.cs`,
+        );
+        if (fileNode) {
+          const absPath =
+            selectedRepoPath.replace(/[\\/]$/, "") +
+            "\\" +
+            fileNode.id.replace(/\//g, "\\");
+          const fileRes = await window.graphApi?.readFile(absPath);
+          if (fileRes?.success && fileRes.content) {
+            const lines = fileRes.content.split("\n");
+            let highlightLine = -1;
+
+            const methodRegex = new RegExp(
+              `\\b${method.replace(/\(\)/g, "")}\\b\\s*\\(`,
+            );
+            for (let i = 0; i < lines.length; i++) {
+              if (methodRegex.test(lines[i])) {
+                highlightLine = i + 1;
+                break;
+              }
+            }
+
+            setSelectedNodeCode({
+              code: fileRes.content,
+              highlightLine,
+              className,
+              method,
+              filePath: fileNode.id,
+            });
+          } else {
+            showToast("Không thể đọc nội dung file.", "error");
+          }
+        } else {
+          showToast(
+            `Không tìm thấy file cho lớp ${className}.cs trong Workspace.`,
+            "error",
+          );
+        }
+      }
+    } catch (err) {
+      showToast("Lỗi khi tìm code.", "error");
+    } finally {
+      setIsCodeLoading(false);
+    }
+  };
 
   const loadFeatures = async () => {
     setIsLoading(true);
@@ -21,11 +147,17 @@ const FeaturesView = () => {
       if (res?.success && res.status === 200) {
         const data = res.data;
         if (Array.isArray(data)) setFeatures(data as FeatureItem[]);
-        else if (data && Array.isArray((data as any).items)) setFeatures((data as any).items as FeatureItem[]);
-        else if (data && Array.isArray((data as any).Items)) setFeatures((data as any).Items as FeatureItem[]);
+        else if (data && Array.isArray((data as any).items))
+          setFeatures((data as any).items as FeatureItem[]);
+        else if (data && Array.isArray((data as any).Items))
+          setFeatures((data as any).Items as FeatureItem[]);
         else setFeatures([]);
       } else {
-        showToast(res?.error || `Lỗi từ Backend (${res?.status}): ${JSON.stringify(res?.data)}`, "error");
+        showToast(
+          res?.error ||
+            `Lỗi từ Backend (${res?.status}): ${JSON.stringify(res?.data)}`,
+          "error",
+        );
       }
     } catch {
       showToast("Lỗi kết nối đến server.", "error");
@@ -62,7 +194,9 @@ const FeaturesView = () => {
     (featureDetail as any)?.DataFlowMermaidGraph ||
     "";
   const entryPoint =
-    (featureDetail as any)?.entryPoint || (featureDetail as any)?.EntryPoint || "";
+    (featureDetail as any)?.entryPoint ||
+    (featureDetail as any)?.EntryPoint ||
+    "";
   const rawSteps =
     (featureDetail as any)?.steps || (featureDetail as any)?.Steps || [];
   const steps = Array.isArray(rawSteps) ? rawSteps : [];
@@ -72,15 +206,23 @@ const FeaturesView = () => {
 
     if (result.nodes.length === 0 && steps.length > 0) {
       const nodeMap = new Map<string, string>();
-      const edgesList: { source: string; target: string; label?: string }[] = [];
+      const edgesList: { source: string; target: string; label?: string }[] =
+        [];
 
       steps.forEach((step: any, idx: number) => {
         const caller = `${step.callerClass || step.CallerClass || "Unknown"}.${step.callerMethod || step.CallerMethod || "Unknown"}`;
         const callee = `${step.calleeClass || step.CalleeClass || "Unknown"}.${step.calleeMethod || step.CalleeMethod || "Unknown"}`;
-        const order = step.stepOrder !== undefined ? step.stepOrder : (step.StepOrder !== undefined ? step.StepOrder : idx + 1);
+        const order =
+          step.stepOrder !== undefined
+            ? step.stepOrder
+            : step.StepOrder !== undefined
+              ? step.StepOrder
+              : idx + 1;
 
         const getOrAddNode = (name: string) => {
-          let id = Array.from(nodeMap.entries()).find(([_, v]) => v === name)?.[0];
+          let id = Array.from(nodeMap.entries()).find(
+            ([_, v]) => v === name,
+          )?.[0];
           if (!id) {
             id = `n_${nodeMap.size}`;
             nodeMap.set(id, name);
@@ -94,13 +236,13 @@ const FeaturesView = () => {
         edgesList.push({
           source: sId,
           target: tId,
-          label: `${order}`
+          label: `${order}`,
         });
       });
 
       const nodesList = Array.from(nodeMap.entries()).map(([id, label]) => ({
         id,
-        label
+        label,
       }));
 
       result = { nodes: nodesList, edges: edgesList };
@@ -118,75 +260,168 @@ const FeaturesView = () => {
 
   return (
     <div className="page active" style={{ padding: "24px 28px" }}>
-      <div className="codeflow-layout">
-        {/* Left panel */}
+      {/* Code Drawer Overlay */}
+      {selectedNodeCode && (
         <div
-          className="card codeflow-search-panel"
+          ref={panelRef}
           style={{
-            background: "rgba(255, 255, 255, 0.65)",
-            backdropFilter: "blur(16px)",
-            border: "1px solid rgba(255, 255, 255, 0.4)",
+            position: "fixed",
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: `${codePanelWidth}px`,
+            minWidth: "600px",
+            background: "#ffffff",
+            boxShadow: "4px 0 24px rgba(0,0,0,0.1)",
+            zIndex: 10000,
+            display: "flex",
+            flexDirection: "column",
+            animation: "slideInLeft 0.2s ease-out",
           }}
         >
-          <div className="card-header">
-            <div className="card-icon blue">
+          {/* Resizer Handle */}
+          <div
+            onMouseDown={() => setIsResizingPanel(true)}
+            style={{
+              position: "absolute",
+              top: 0,
+              right: -4,
+              bottom: 0,
+              width: 8,
+              cursor: "col-resize",
+              zIndex: 10001,
+              background: isResizingPanel ? "var(--blue)" : "transparent",
+              transition: "background 0.2s",
+            }}
+          />
+          <div
+            style={{
+              padding: "16px 24px",
+              borderBottom: "1px solid #e2e8f0",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              background: "#f8fafc",
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: "#1e293b",
+                  marginBottom: 4,
+                }}
+              >
+                {selectedNodeCode.className}.
+                <span style={{ color: "#3b82f6" }}>
+                  {selectedNodeCode.method}
+                </span>
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#64748b",
+                  fontFamily: "var(--font-mono)",
+                }}
+              >
+                {selectedNodeCode.filePath}
+              </div>
+            </div>
+            <button
+              onClick={() => setSelectedNodeCode(null)}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 8,
+                borderRadius: "50%",
+                color: "#64748b",
+              }}
+            >
               <svg
                 viewBox="0 0 20 20"
                 fill="currentColor"
-                width="16"
-                height="16"
+                width="20"
+                height="20"
               >
-                <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
-                <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
               </svg>
-            </div>
-            <div className="card-title">Features</div>
+            </button>
           </div>
-          <p className="card-desc">Chọn một feature để xem chi tiết.</p>
-
-          <div className="search-box" style={{ marginBottom: 12 }}>
-            <svg
-              className="search-icon"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              width="14"
-              height="14"
+          <div style={{ flex: 1, overflow: "auto", position: "relative" }}>
+            <SyntaxHighlighter
+              language="csharp"
+              style={oneLight}
+              customStyle={{
+                margin: 0,
+                padding: "20px",
+                fontSize: "13px",
+                minHeight: "100%",
+              }}
+              showLineNumbers={true}
+              wrapLines={true}
+              lineProps={(lineNumber) => {
+                const isHighlight =
+                  lineNumber === selectedNodeCode.highlightLine;
+                return {
+                  style: {
+                    display: "block",
+                    backgroundColor: isHighlight ? "#fffbeb" : "transparent",
+                    borderLeft: isHighlight
+                      ? "3px solid #f59e0b"
+                      : "3px solid transparent",
+                    paddingLeft: "8px",
+                  },
+                  id: isHighlight ? "highlighted-line" : undefined,
+                };
+              }}
             >
-              <path
-                fillRule="evenodd"
-                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Tìm kiếm feature..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+              {selectedNodeCode.code}
+            </SyntaxHighlighter>
           </div>
-
-          <button
-            className="btn-secondary"
+        </div>
+      )}
+      <style>{`
+        @keyframes slideInLeft {
+          from { transform: translateX(-100%); }
+          to { transform: translateX(0); }
+        }
+      `}</style>
+      <div className="codeflow-layout">
+        {/* Left panel */}
+        {!isGraphFullscreen && (
+          <div
+            className="card codeflow-search-panel"
             style={{
-              width: "100%",
-              justifyContent: "center",
-              marginBottom: 12,
+              background: "rgba(255, 255, 255, 0.65)",
+              backdropFilter: "blur(16px)",
+              border: "1px solid rgba(255, 255, 255, 0.4)",
             }}
-            onClick={loadFeatures}
-            disabled={isLoading}
           >
-            {isLoading ? (
-              <span
-                className="btn-spinner"
-                style={{
-                  borderColor: "var(--border)",
-                  borderTopColor: "var(--blue)",
-                }}
-              />
-            ) : (
+            <div className="card-header">
+              <div className="card-icon blue">
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  width="16"
+                  height="16"
+                >
+                  <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
+                  <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
+                </svg>
+              </div>
+              <div className="card-title">Features</div>
+            </div>
+            <p className="card-desc">Chọn một feature để xem chi tiết.</p>
+
+            <div className="search-box" style={{ marginBottom: 12 }}>
               <svg
+                className="search-icon"
                 viewBox="0 0 20 20"
                 fill="currentColor"
                 width="14"
@@ -194,49 +429,102 @@ const FeaturesView = () => {
               >
                 <path
                   fillRule="evenodd"
-                  d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                  d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
                   clipRule="evenodd"
                 />
               </svg>
-            )}
-            Làm mới
-          </button>
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Tìm kiếm feature..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
 
-          {isLoading ? (
-            <div className="loading-state" style={{ padding: "24px" }}>
-              <div className="spinner-large" />
-            </div>
-          ) : features.length === 0 ? (
-            <div className="empty-state" style={{ padding: "24px" }}>
-              <div className="empty-title">Chưa có flow nào</div>
-              <div className="empty-desc">Hãy phân tích repository trước.</div>
-            </div>
-          ) : (
-            <div className="recent-list">
-              {features.filter(f => !search || (f.name && f.name.toLowerCase().includes(search.toLowerCase()))).map((flow) => (
-                <div
-                  key={flow.id}
-                  className="recent-item"
-                  style={
-                    selected?.id === flow.id
-                      ? {
-                        borderColor: "var(--blue)",
-                        background: "var(--blue-dim)",
-                      }
-                      : {}
-                  }
-                  onClick={() => loadFeatureDetail(flow)}
+            <button
+              className="btn-secondary"
+              style={{
+                width: "100%",
+                justifyContent: "center",
+                marginBottom: 12,
+              }}
+              onClick={loadFeatures}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <span
+                  className="btn-spinner"
+                  style={{
+                    borderColor: "var(--border)",
+                    borderTopColor: "var(--blue)",
+                  }}
+                />
+              ) : (
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  width="14"
+                  height="14"
                 >
-                  <div className="recent-dot" />
-                  <div className="recent-item-name">{flow.name}</div>
+                  <path
+                    fillRule="evenodd"
+                    d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+              Làm mới
+            </button>
+
+            {isLoading ? (
+              <div className="loading-state" style={{ padding: "24px" }}>
+                <div className="spinner-large" />
+              </div>
+            ) : features.length === 0 ? (
+              <div className="empty-state" style={{ padding: "24px" }}>
+                <div className="empty-title">Chưa có flow nào</div>
+                <div className="empty-desc">
+                  Hãy phân tích repository trước.
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              </div>
+            ) : (
+              <div className="recent-list">
+                {features
+                  .filter(
+                    (f) =>
+                      !search ||
+                      (f.name &&
+                        f.name.toLowerCase().includes(search.toLowerCase())),
+                  )
+                  .map((flow) => (
+                    <div
+                      key={flow.id}
+                      className="recent-item"
+                      style={
+                        selected?.id === flow.id
+                          ? {
+                              borderColor: "var(--blue)",
+                              background: "var(--blue-dim)",
+                            }
+                          : {}
+                      }
+                      onClick={() => loadFeatureDetail(flow)}
+                    >
+                      <div className="recent-dot" />
+                      <div className="recent-item-name">{flow.name}</div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Right panel */}
-        <div className="codeflow-result">
+        <div
+          className="codeflow-result"
+          style={isGraphFullscreen ? { gridColumn: "1 / -1" } : {}}
+        >
           {!selected && (
             <div
               className="card"
@@ -277,7 +565,7 @@ const FeaturesView = () => {
               className="card"
               style={{
                 background: "rgba(255, 255, 255, 0.65)",
-                backdropFilter: "blur(16px)",
+                backdropFilter: isGraphFullscreen ? "none" : "blur(16px)",
                 border: "1px solid rgba(255, 255, 255, 0.4)",
               }}
             >
@@ -421,14 +709,13 @@ const FeaturesView = () => {
                           fontSize: "13px",
                           display: "flex",
                           alignItems: "center",
-                          justifyContent: "space-between"
+                          justifyContent: "space-between",
                         }}
                       >
                         <div>
                           <span
                             className="font-main"
                             style={{
-
                               fontWeight: 600,
                               color: "var(--blue-light)",
                             }}
@@ -445,8 +732,14 @@ const FeaturesView = () => {
                             {entryPoint || "Chưa định nghĩa"}
                           </span>
                         </div>
-                        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                          Tổng số: {parsedGraph.nodes.length} nút, {parsedGraph.edges.length} liên kết
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          Tổng số: {parsedGraph.nodes.length} nút,{" "}
+                          {parsedGraph.edges.length} liên kết
                         </span>
                       </div>
 
@@ -459,13 +752,18 @@ const FeaturesView = () => {
                             Không có dữ liệu đồ thị
                           </div>
                           <div className="empty-desc">
-                            Mã Mermaid trống hoặc không thể phân tích các bước trong flow này.
+                            Mã Mermaid trống hoặc không thể phân tích các bước
+                            trong flow này.
                           </div>
                         </div>
                       ) : (
                         <FeatureInteractiveGraph
                           parsedGraph={parsedGraph}
                           entryPoint={entryPoint}
+                          onNodeClick={handleNodeClick}
+                          onToggleFullscreen={(isFull) =>
+                            setIsGraphFullscreen(isFull)
+                          }
                         />
                       )}
                     </div>
@@ -510,8 +808,8 @@ const FeaturesView = () => {
                             Không tìm thấy bước gọi hàm nào
                           </div>
                           <div className="empty-desc">
-                            Feature này có thể rỗng hoặc chưa được phân
-                            tích đúng.
+                            Feature này có thể rỗng hoặc chưa được phân tích
+                            đúng.
                           </div>
                         </div>
                       ) : (
@@ -734,7 +1032,7 @@ const FeaturesView = () => {
                         }}
                       >
                         <button
-                          className="btn-secondary border"
+                          className="border btn-secondary"
                           style={{ padding: "6px 12px", fontSize: "11px" }}
                           onClick={handleCopyMermaid}
                           disabled={!mermaidGraph}
