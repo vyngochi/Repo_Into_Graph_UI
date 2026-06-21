@@ -98,8 +98,8 @@ const QuizGeneratorView = () => {
         const questions = Array.isArray(res.data)
           ? res.data
           : (res.data as Record<string, any>)?.evaluatedQuestions ||
-            (res.data as Record<string, any>)?.EvaluatedQuestions ||
-            ((res.data as Record<string, any>)?.questions as any[]);
+          (res.data as Record<string, any>)?.EvaluatedQuestions ||
+          ((res.data as Record<string, any>)?.questions as any[]);
         setGeneratedQuestions(questions || []);
         showToast(`Đã tạo ${(questions || []).length} câu hỏi!`, "success");
       } else {
