@@ -1,22 +1,57 @@
+import { MagnifyingGlass, Database } from "@phosphor-icons/react";
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAppStore, BusinessFlow } from "../../store/useAppStore";
 
 const BusinessFlowView = () => {
-  const { serverUrl, businessFlows, setBusinessFlows, showToast } = useAppStore();
+  const { serverUrl, businessFlows, setBusinessFlows, showToast } =
+    useAppStore();
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [analysisRuns, setAnalysisRuns] = useState<any[]>([]);
+  const [selectedRunId, setSelectedRunId] = useState<string>("");
   const navigate = useNavigate();
   const { repoId } = useParams();
 
+  const fetchAnalysisRuns = async () => {
+    try {
+      const res = await window.api?.getAnalysisRuns({ baseUrl: serverUrl });
+      if (res?.success && res.data) {
+        const data = res.data;
+        let items: any[] = [];
+        if (Array.isArray(data)) items = data;
+        else if (data && Array.isArray((data as any).items))
+          items = (data as any).items;
+
+        setAnalysisRuns(items);
+        if (items.length > 0) {
+          setSelectedRunId(items[0].id);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnalysisRuns();
+  }, [serverUrl]);
+
   const loadFlows = async () => {
+    if (!selectedRunId) return;
     setIsLoading(true);
     try {
-      const res = await window.api?.getBusinessFlows({ baseUrl: serverUrl });
+      const res = await window.api?.getBusinessFlows({
+        baseUrl: serverUrl,
+        analysisRunId: selectedRunId,
+      });
       if (res?.success && Array.isArray(res.data)) {
         setBusinessFlows(res.data as BusinessFlow[]);
       } else {
-        showToast(res?.error || "Không thể tải danh sách business flows.", "error");
+        showToast(
+          res?.error || "Không thể tải danh sách business flows.",
+          "error",
+        );
       }
     } catch {
       showToast("Lỗi kết nối đến server.", "error");
@@ -27,7 +62,7 @@ const BusinessFlowView = () => {
 
   useEffect(() => {
     loadFlows();
-  }, []);
+  }, [serverUrl, selectedRunId]);
 
   const filtered = businessFlows.filter(
     (f) =>
@@ -40,19 +75,7 @@ const BusinessFlowView = () => {
       <div className="features-layout">
         <div className="features-toolbar">
           <div className="search-box">
-            <svg
-              className="search-icon"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              width="14"
-              height="14"
-            >
-              <path
-                fillRule="evenodd"
-                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                clipRule="evenodd"
-              />
-            </svg>
+            <MagnifyingGlass className="search-icon" size={16} weight="bold" />
             <input
               type="text"
               className="search-input"
@@ -60,6 +83,36 @@ const BusinessFlowView = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span
+              style={{
+                fontSize: "14px",
+                fontWeight: 500,
+                color: "var(--text-secondary)",
+              }}
+            >
+              Analysis Run:
+            </span>
+            <select
+              className="form-select"
+              value={selectedRunId}
+              onChange={(e) => setSelectedRunId(e.target.value)}
+              style={{
+                width: "240px",
+                padding: "6px 12px",
+                borderRadius: "6px",
+                border: "1px solid var(--border)",
+                background: "var(--bg-elevated)",
+                color: "var(--text-primary)",
+              }}
+            >
+              {analysisRuns.map((r: any) => (
+                <option key={r.id} value={r.id}>
+                  {new Date(r.createdAt).toLocaleString()} - {r.repoName}
+                </option>
+              ))}
+            </select>
           </div>
           <button
             className="btn-secondary"
@@ -103,23 +156,7 @@ const BusinessFlowView = () => {
           <div className="card">
             <div className="empty-state">
               <div className="empty-art">
-                <svg viewBox="0 0 64 64" width="48" height="48" fill="none">
-                  <rect
-                    x="8"
-                    y="8"
-                    width="48"
-                    height="48"
-                    rx="8"
-                    stroke="var(--border-light)"
-                    strokeWidth="2"
-                  />
-                  <path
-                    d="M20 24h24M20 32h16M20 40h20"
-                    stroke="var(--border-light)"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </svg>
+                <Database size={48} weight="duotone" color="var(--border-light)" />
               </div>
               <div className="empty-title">
                 {businessFlows.length === 0

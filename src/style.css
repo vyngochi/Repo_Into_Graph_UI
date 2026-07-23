@@ -202,7 +202,6 @@ body {
 }
 
 @keyframes pulse-green {
-
   0%,
   100% {
     opacity: 1;
@@ -660,7 +659,7 @@ body {
   color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 12px;
-  max-width: 240px;
+  max-width: 400px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -849,7 +848,10 @@ body {
 }
 
 .codeflow-search-panel {
-  height: fit-content;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .codeflow-result {
@@ -876,6 +878,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .recent-item {
@@ -1705,7 +1710,6 @@ body {
 }
 
 @keyframes pulse-text {
-
   0%,
   100% {
     opacity: 1;
@@ -1790,7 +1794,6 @@ body {
 }
 
 @keyframes geo-float {
-
   0%,
   100% {
     transform: translateY(0) rotate(0deg);
@@ -1990,7 +1993,6 @@ body {
 }
 
 @keyframes graph-float {
-
   0%,
   100% {
     transform: translateY(0);
@@ -2681,7 +2683,7 @@ body {
   flex-shrink: 0;
 }
 
-.ft-dir.open>.ft-dir-arrow {
+.ft-dir.open > .ft-dir-arrow {
   transform: rotate(90deg);
 }
 
@@ -2705,7 +2707,7 @@ body {
   padding-left: 14px;
 }
 
-.ft-dir.open+.ft-children {
+.ft-dir.open + .ft-children {
   display: block;
 }
 

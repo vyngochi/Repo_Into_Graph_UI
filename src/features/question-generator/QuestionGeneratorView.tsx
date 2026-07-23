@@ -1,5 +1,7 @@
+import { MagnifyingGlass, Question, Database } from "@phosphor-icons/react";
 import React, { useState, useEffect } from "react";
 import { useAppStore, BusinessFlow } from "../../store/useAppStore";
+import { FeatureInteractiveGraph } from "../features-list/FeatureInteractiveGraph";
 
 const QuizGeneratorView = () => {
   const { serverUrl, businessFlows, setBusinessFlows, showToast } =
@@ -10,7 +12,26 @@ const QuizGeneratorView = () => {
   const [additionalContext, setAdditionalContext] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingFlows, setIsLoadingFlows] = useState(false);
+  const [analysisRuns, setAnalysisRuns] = useState<any[]>([]);
+  const [selectedRunId, setSelectedRunId] = useState<string>("");
   const [generatedQuestions, setGeneratedQuestions] = useState<any[]>([]);
+  const [isAssessing, setIsAssessing] = useState(false);
+  const [assessmentResults, setAssessmentResults] = useState<any>(null);
+
+  // Highlight Modal State
+  const [highlightModal, setHighlightModal] = useState<{
+    isOpen: boolean;
+    question: string;
+    activeNodeIds: string[];
+    parsedGraph: { nodes: any[]; edges: any[] } | null;
+    isLoading: boolean;
+  }>({
+    isOpen: false,
+    question: "",
+    activeNodeIds: [],
+    parsedGraph: null,
+    isLoading: false,
+  });
 
   // Few-Shot state
   const [fewShots, setFewShots] = useState<any[]>([]);
@@ -27,10 +48,34 @@ const QuizGeneratorView = () => {
     );
   });
 
+  const fetchAnalysisRuns = async () => {
+    try {
+      const res = await window.api?.getAnalysisRuns({ baseUrl: serverUrl });
+      if (res?.success && res.data) {
+        const data = res.data;
+        let items: any[] = [];
+        if (Array.isArray(data)) items = data;
+        else if (data && Array.isArray((data as any).items))
+          items = (data as any).items;
+
+        setAnalysisRuns(items);
+        if (items.length > 0) {
+          setSelectedRunId(items[0].id);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const loadFlows = async () => {
+    if (!selectedRunId) return;
     setIsLoadingFlows(true);
     try {
-      const res = await window.api?.getBusinessFlows({ baseUrl: serverUrl });
+      const res = await window.api?.getBusinessFlows({
+        baseUrl: serverUrl,
+        analysisRunId: selectedRunId,
+      });
       if (res?.success && res.status === 200) {
         const data = res.data;
         if (Array.isArray(data)) setBusinessFlows(data as BusinessFlow[]);
@@ -73,7 +118,14 @@ const QuizGeneratorView = () => {
   };
 
   useEffect(() => {
-    if (businessFlows.length === 0) loadFlows();
+    fetchAnalysisRuns();
+  }, [serverUrl]);
+
+  useEffect(() => {
+    loadFlows();
+  }, [serverUrl, selectedRunId]);
+
+  useEffect(() => {
     loadFewShots();
   }, []);
 
@@ -94,13 +146,16 @@ const QuizGeneratorView = () => {
         fewShotExampleIds:
           selectedFewShots.length > 0 ? selectedFewShots : null,
       });
+
       if (res?.success) {
         const questions = Array.isArray(res.data)
           ? res.data
-          : (res.data as Record<string, any>)?.evaluatedQuestions ||
-            (res.data as Record<string, any>)?.EvaluatedQuestions ||
+          : (res.data as Record<string, any>)?.generatedQuestionDtos ||
+            (res.data as Record<string, any>)?.GeneratedQuestionDtos ||
             ((res.data as Record<string, any>)?.questions as any[]);
+
         setGeneratedQuestions(questions || []);
+        setAssessmentResults(null); // Reset on new generate
         showToast(`Đã tạo ${(questions || []).length} câu hỏi!`, "success");
       } else {
         showToast(res?.error || "Không thể tạo câu hỏi.", "error");
@@ -109,6 +164,107 @@ const QuizGeneratorView = () => {
       showToast("Lỗi kết nối đến server.", "error");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAssessQuality = async () => {
+    if (!selectedFlow || generatedQuestions.length === 0) return;
+    setIsAssessing(true);
+    setAssessmentResults(null);
+    try {
+      const payload = {
+        businessId: selectedFlow.id,
+        businessName: selectedFlow.businessName,
+        generatedQuestionDtos: generatedQuestions.map((q) => ({
+          question: q.question || q.Question || "",
+          suggestedAnswer: q.suggestedAnswer || q.SuggestedAnswer || "",
+          difficulty: q.difficulty || q.Difficulty || "",
+        })),
+      };
+
+      const coverageRes = await window.api?.assessFromResponse({
+        baseUrl: serverUrl,
+        payload,
+      });
+      if (coverageRes?.status !== 200) {
+        console.error("Coverage API Error:", coverageRes);
+        showToast(
+          "Lỗi API Coverage: " + JSON.stringify(coverageRes?.data),
+          "error",
+        );
+        setIsAssessing(false);
+        return;
+      }
+
+      const accuracyRes = await window.api?.assessAccuracy({
+        baseUrl: serverUrl,
+        payload,
+      });
+      const difficultyRes = await window.api?.assessDifficulty({
+        baseUrl: serverUrl,
+        payload,
+      });
+
+      setAssessmentResults({
+        coverage:
+          coverageRes?.success && coverageRes?.status === 200
+            ? coverageRes.data
+            : null,
+        accuracy:
+          accuracyRes?.success && accuracyRes?.status === 200
+            ? accuracyRes.data
+            : null,
+        difficulty:
+          difficultyRes?.success && difficultyRes?.status === 200
+            ? difficultyRes.data
+            : null,
+      });
+      showToast("Đã hoàn thành đánh giá chất lượng!", "success");
+    } catch (err) {
+      showToast("Lỗi khi đánh giá chất lượng.", "error");
+    } finally {
+      setIsAssessing(false);
+    }
+  };
+
+  const handleShowGraph = async (qText: string, activeNodeIds: string[]) => {
+    if (!selectedFlow) return;
+    setHighlightModal({
+      isOpen: true,
+      question: qText,
+      activeNodeIds,
+      parsedGraph: null,
+      isLoading: true,
+    });
+
+    try {
+      const res = await window.api?.getBusinessGraph({
+        baseUrl: serverUrl,
+        id: selectedFlow.id,
+      });
+      if (res?.success && res.data) {
+        const graphData = res.data as any;
+        const parsed = {
+          nodes:
+            graphData.nodes?.map((n: any) => ({ id: n.id, label: n.name })) ||
+            [],
+          edges:
+            graphData.edges?.map((e: any) => ({
+              source: e.fromNodeId,
+              target: e.toNodeId,
+              label: e.condition || undefined,
+            })) || [],
+        };
+        setHighlightModal((prev) => ({ ...prev, parsedGraph: parsed }));
+      } else {
+        showToast("Không thể tải đồ thị nghiệp vụ.", "error");
+        setHighlightModal((prev) => ({ ...prev, isOpen: false }));
+      }
+    } catch (err) {
+      showToast("Lỗi khi tải đồ thị.", "error");
+      setHighlightModal((prev) => ({ ...prev, isOpen: false }));
+    } finally {
+      setHighlightModal((prev) => ({ ...prev, isLoading: false }));
     }
   };
 
@@ -125,22 +281,40 @@ const QuizGeneratorView = () => {
         <div className="card analyze-form-card">
           <div className="card-header">
             <div className="card-icon blue">
-              <svg
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                width="16"
-                height="16"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <Question size={16} weight="fill" />
             </div>
             <div className="card-title">Tạo câu hỏi tự động</div>
           </div>
           <p className="card-desc">Dùng AI sinh câu hỏi từ Business Flow</p>
+
+          {/* Analysis Run selection */}
+          <div className="form-group">
+            <label
+              className="form-label"
+              style={{
+                fontWeight: 600,
+                fontSize: "11px",
+                textTransform: "uppercase",
+                color: "var(--text-secondary)",
+                marginBottom: 4,
+              }}
+            >
+              Lần phân tích (Analysis Run)
+            </label>
+            <select
+              className="form-input"
+              value={selectedRunId}
+              onChange={(e) => setSelectedRunId(e.target.value)}
+              style={{ cursor: "pointer" }}
+            >
+              {analysisRuns.map((run) => (
+                <option key={run.id} value={run.id}>
+                  {new Date(run.createdAt).toLocaleString("vi-VN")} -{" "}
+                  {run.repositoryPath?.split(/[/\\]/).pop()}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Business Flow selection */}
           <div className="form-group">
@@ -266,19 +440,11 @@ const QuizGeneratorView = () => {
             </label>
 
             <div className="search-box" style={{ marginBottom: "10px" }}>
-              <svg
+              <MagnifyingGlass
                 className="search-icon"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                width="16"
-                height="16"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                  clipRule="evenodd"
-                />
-              </svg>
+                size={16}
+                weight="bold"
+              />
               <input
                 type="text"
                 className="search-input"
@@ -410,6 +576,7 @@ const QuizGeneratorView = () => {
                               ? "var(--blue-light)"
                               : "var(--text-primary)",
                             lineHeight: 1.4,
+
                             wordBreak: "break-word",
                             display: "-webkit-box",
                             WebkitLineClamp: 2,
@@ -473,28 +640,11 @@ const QuizGeneratorView = () => {
             <div className="card">
               <div className="empty-state">
                 <div className="empty-art">
-                  <svg viewBox="0 0 80 80" width="64" height="64" fill="none">
-                    <rect
-                      x="16"
-                      y="16"
-                      width="48"
-                      height="48"
-                      rx="8"
-                      stroke="var(--blue)"
-                      strokeWidth="2"
-                      opacity="0.4"
-                    />
-                    <path
-                      d="M32 30h16M32 40h16M32 50h10"
-                      stroke="var(--blue)"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      opacity="0.4"
-                    />
-                    <circle cx="26" cy="30" r="2" fill="var(--cyan)" />
-                    <circle cx="26" cy="40" r="2" fill="var(--cyan)" />
-                    <circle cx="26" cy="50" r="2" fill="var(--cyan)" />
-                  </svg>
+                  <Database
+                    size={64}
+                    weight="duotone"
+                    color="var(--border-light)"
+                  />
                 </div>
                 <div className="empty-title">
                   Chưa có câu hỏi nào được sinh ra
@@ -504,6 +654,185 @@ const QuizGeneratorView = () => {
                   nhấn <strong>Tạo câu hỏi</strong> để bắt đầu sinh.
                 </div>
               </div>
+            </div>
+          )}
+
+          {!isLoading && generatedQuestions.length > 0 && (
+            <div
+              style={{
+                padding: "0 0 16px 0",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "16px",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  Danh sách câu hỏi sinh ra ({generatedQuestions.length})
+                </h3>
+                <button
+                  className="btn-secondary"
+                  onClick={handleAssessQuality}
+                  disabled={isAssessing}
+                  style={{ display: "flex", gap: "6px", alignItems: "center" }}
+                >
+                  {isAssessing ? (
+                    <span
+                      className="btn-spinner"
+                      style={{ width: 14, height: 14 }}
+                    />
+                  ) : (
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                      <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                  )}
+                  Đánh giá chất lượng
+                </button>
+              </div>
+
+              {assessmentResults && (
+                <div
+                  className="card"
+                  style={{
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border)",
+                    display: "flex",
+                    gap: "16px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {assessmentResults.coverage && (
+                    <div style={{ flex: 1, minWidth: "200px" }}>
+                      <div
+                        style={{
+                          fontSize: "13px",
+                          color: "var(--text-muted)",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Độ bao phủ (Coverage)
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "20px",
+                          fontWeight: "bold",
+                          color: "var(--blue)",
+                        }}
+                      >
+                        {(
+                          assessmentResults.coverage.averageTotalCoverage * 100
+                        ).toFixed(1)}
+                        %
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          color: "var(--text-secondary)",
+                        }}
+                      >
+                        Node Workflow:{" "}
+                        {assessmentResults.coverage.workflowNodeCount} | Global:{" "}
+                        {assessmentResults.coverage.globalNodeCount}
+                      </div>
+                    </div>
+                  )}
+                  {assessmentResults.accuracy && (
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: "200px",
+                        borderLeft: "1px solid var(--border)",
+                        paddingLeft: "16px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "13px",
+                          color: "var(--text-muted)",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Độ chính xác (Accuracy)
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "14px",
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        {
+                          assessmentResults.accuracy.questionResults?.filter(
+                            (r: any) => r.accuracyResult?.isAccurate,
+                          ).length
+                        }{" "}
+                        / {assessmentResults.accuracy.questionResults?.length}{" "}
+                        câu đúng
+                      </div>
+                    </div>
+                  )}
+                  {assessmentResults.difficulty && (
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: "200px",
+                        borderLeft: "1px solid var(--border)",
+                        paddingLeft: "16px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "13px",
+                          color: "var(--text-muted)",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Độ khó (Difficulty)
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "14px",
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        {(() => {
+                          const results =
+                            assessmentResults.difficulty.questionResults || [];
+                          if (results.length === 0) return "Chưa có đánh giá";
+                          const counts: Record<string, number> = {};
+                          results.forEach((r: any) => {
+                            const level =
+                              r.difficultyResult?.level || "Không xác định";
+                            counts[level] = (counts[level] || 0) + 1;
+                          });
+                          return Object.entries(counts)
+                            .map(([level, count]) => `${count} ${level}`)
+                            .join(" | ");
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -546,16 +875,162 @@ const QuizGeneratorView = () => {
           )}
 
           {!isLoading &&
-            generatedQuestions.map((q, i) => (
-              <QuestionCard
-                key={i}
-                q={q}
-                index={i}
-                defaultDifficulty={difficulty}
-              />
-            ))}
+            generatedQuestions.map((q, i) => {
+              const qText = q.question || q.Question || "";
+              let activeNodeIds: string[] = [];
+              let accuracyRes: any = null;
+
+              if (assessmentResults?.accuracy?.questionResults) {
+                const qRes = assessmentResults.accuracy.questionResults.find(
+                  (r: any) => r.question === qText,
+                );
+                if (qRes?.accuracyResult) {
+                  accuracyRes = qRes.accuracyResult;
+                  activeNodeIds =
+                    qRes.accuracyResult.extractedPath?.map(
+                      (p: any) => p.nodeId,
+                    ) || [];
+                }
+              }
+
+              return (
+                <QuestionCard
+                  key={i}
+                  q={q}
+                  index={i}
+                  defaultDifficulty={q.difficulty || q.Difficulty || ""}
+                  assessmentData={{ accuracyRes, activeNodeIds }}
+                  onShowGraph={() => handleShowGraph(qText, activeNodeIds)}
+                />
+              );
+            })}
         </div>
       </div>
+
+      {/* Highlight Graph Modal */}
+      {highlightModal.isOpen && (
+        <div
+          className="modal-overlay"
+          onClick={() =>
+            setHighlightModal((prev) => ({ ...prev, isOpen: false }))
+          }
+        >
+          <div
+            className="modal-content"
+            style={{
+              width: "90%",
+              height: "90%",
+              display: "flex",
+              flexDirection: "column",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 className="modal-title">
+                Sơ đồ luồng: {selectedFlow?.businessName}
+              </h2>
+              <button
+                className="btn-icon"
+                onClick={() =>
+                  setHighlightModal((prev) => ({ ...prev, isOpen: false }))
+                }
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div
+              className="modal-body"
+              style={{
+                flex: 1,
+                padding: 0,
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <div
+                style={{
+                  padding: "16px 24px",
+                  background: "var(--bg-elevated)",
+                  borderBottom: "1px solid var(--border)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "13px",
+                    color: "var(--text-muted)",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Câu hỏi đang xem:
+                </div>
+                <div
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: 500,
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  {highlightModal.question}
+                </div>
+              </div>
+
+              <div style={{ flex: 1, position: "relative" }}>
+                {highlightModal.isLoading ? (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <span
+                      className="btn-spinner"
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderColor: "var(--border)",
+                        borderTopColor: "var(--blue)",
+                      }}
+                    />
+                  </div>
+                ) : highlightModal.parsedGraph ? (
+                  <FeatureInteractiveGraph
+                    parsedGraph={highlightModal.parsedGraph}
+                    entryPoint={highlightModal.parsedGraph.nodes[0]?.id || ""}
+                    highlightNodes={highlightModal.activeNodeIds}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    Không có dữ liệu đồ thị
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -564,14 +1039,19 @@ const QuestionCard = ({
   q,
   index,
   defaultDifficulty,
+  assessmentData,
+  onShowGraph,
 }: {
   q: any;
   index: number;
   defaultDifficulty: string;
+  assessmentData?: { accuracyRes: any; activeNodeIds: string[] };
+  onShowGraph?: () => void;
 }) => {
   const [showAnswer, setShowAnswer] = useState(false);
   const questionText = q.question || q.Question || "";
   const answerText = q.suggestedAnswer || q.SuggestedAnswer || "";
+  const accuracyRes = assessmentData?.accuracyRes;
 
   return (
     <div
@@ -605,14 +1085,55 @@ const QuestionCard = ({
           >
             Câu {index + 1}
           </span>
+          <span
+            style={{
+              padding: "4px 8px",
+              fontSize: "11px",
+              fontWeight: 700,
+              background: "var(--blue-dim)",
+              color: "var(--blue-light)",
+              borderRadius: "4px",
+            }}
+          >
+            {defaultDifficulty}
+          </span>
+          {accuracyRes && (
+            <span
+              style={{
+                padding: "4px 8px",
+                borderRadius: "12px",
+                fontSize: "12px",
+                fontWeight: 600,
+                backgroundColor: accuracyRes.isAccurate
+                  ? "var(--green-dim)"
+                  : "var(--red-dim)",
+                color: accuracyRes.isAccurate ? "var(--green)" : "var(--red)",
+                border: `1px solid ${accuracyRes.isAccurate ? "var(--green)" : "var(--red)"}`,
+              }}
+            >
+              {accuracyRes.isAccurate ? "Accurate" : "Inaccurate"}
+            </span>
+          )}
         </div>
-        <button
-          onClick={() => setShowAnswer(!showAnswer)}
-          className="btn-secondary"
-          style={{ padding: "6px 12px", fontSize: "12px" }}
-        >
-          {showAnswer ? "Ẩn đáp án gợi ý" : "Hiện đáp án gợi ý"}
-        </button>
+        <div style={{ display: "flex", gap: "8px" }}>
+          {assessmentData?.activeNodeIds &&
+            assessmentData.activeNodeIds.length > 0 && (
+              <button
+                className="btn-secondary"
+                onClick={onShowGraph}
+                style={{ fontSize: "12px", padding: "4px 12px" }}
+              >
+                Xem luồng đi
+              </button>
+            )}
+          <button
+            onClick={() => setShowAnswer(!showAnswer)}
+            className="btn-secondary"
+            style={{ padding: "6px 12px", fontSize: "12px" }}
+          >
+            {showAnswer ? "Ẩn đáp án gợi ý" : "Hiện đáp án gợi ý"}
+          </button>
+        </div>
       </div>
 
       <div

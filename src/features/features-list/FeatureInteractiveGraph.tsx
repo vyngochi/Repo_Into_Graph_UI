@@ -1,3 +1,4 @@
+import { FileText } from "@phosphor-icons/react";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
 export const parseMermaid = (mermaidText: string) => {
@@ -257,6 +258,7 @@ interface FeatureInteractiveGraphProps {
     edges: { source: string; target: string; label?: string }[];
   };
   entryPoint: string;
+  highlightNodes?: string[];
 }
 
 export const FeatureInteractiveGraph = ({
@@ -264,6 +266,7 @@ export const FeatureInteractiveGraph = ({
   entryPoint,
   onNodeClick,
   onToggleFullscreen,
+  highlightNodes = [],
 }: FeatureInteractiveGraphProps) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDraggingNode, setIsDraggingNode] = useState(false);
@@ -504,6 +507,8 @@ export const FeatureInteractiveGraph = ({
       let titleColor = "#64748b";
       let methodColor = "#1e293b";
 
+      const isHighlighted = highlightNodes.includes(node.id);
+
       if (isHovered) {
         bgGradient.addColorStop(0, "#eff6ff");
         bgGradient.addColorStop(1, "#dbeafe");
@@ -511,6 +516,13 @@ export const FeatureInteractiveGraph = ({
         borderWidth = 2.5;
         titleColor = "#2563eb";
         methodColor = "#1e40af";
+      } else if (isHighlighted) {
+        bgGradient.addColorStop(0, "#fff1f2"); // Rose background
+        bgGradient.addColorStop(1, "#ffe4e6");
+        borderColor = "#f43f5e"; // Rose border
+        borderWidth = 2;
+        titleColor = "#e11d48";
+        methodColor = "#9f1239";
       } else if (isEntry) {
         bgGradient.addColorStop(0, "#ecfdf5");
         bgGradient.addColorStop(1, "#d1fae5");
@@ -593,6 +605,7 @@ export const FeatureInteractiveGraph = ({
     hoveredNodeId,
     parsedGraph,
     entryPoint,
+    highlightNodes,
   ]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -964,19 +977,7 @@ export const FeatureInteractiveGraph = ({
           userSelect: "none",
         }}
       >
-        <svg
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          width="11"
-          height="11"
-          style={{ color: "#3b82f6" }}
-        >
-          <path
-            fillRule="evenodd"
-            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-            clipRule="evenodd"
-          />
-        </svg>
+        <FileText size={16} weight="bold" />
         Kéo để di chuyển · Cuộn để zoom · Kéo thả nút để sắp xếp
       </div>
     </div>

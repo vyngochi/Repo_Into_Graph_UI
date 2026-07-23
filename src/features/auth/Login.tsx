@@ -1,3 +1,4 @@
+import { ChalkboardTeacher } from "@phosphor-icons/react";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../../store/useAppStore";
@@ -73,38 +74,7 @@ const Login = () => {
               justifyContent: "center",
             }}
           >
-            <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
-              <circle cx="6" cy="6" r="4" fill="var(--blue)" />
-              <circle cx="22" cy="6" r="4" fill="var(--violet)" />
-              <circle cx="14" cy="22" r="4" fill="var(--cyan)" />
-              <line
-                x1="6"
-                y1="6"
-                x2="22"
-                y2="6"
-                stroke="var(--blue)"
-                strokeWidth="1.5"
-                opacity="0.6"
-              />
-              <line
-                x1="6"
-                y1="6"
-                x2="14"
-                y2="22"
-                stroke="var(--violet)"
-                strokeWidth="1.5"
-                opacity="0.6"
-              />
-              <line
-                x1="22"
-                y1="6"
-                x2="14"
-                y2="22"
-                stroke="var(--cyan)"
-                strokeWidth="1.5"
-                opacity="0.6"
-              />
-            </svg>
+            <ChalkboardTeacher size={24} weight="duotone" color="#6366f1" />
           </div>
           <div>
             <div
@@ -155,7 +125,7 @@ const Login = () => {
           }}
         >
           <button className="btn-primary btn-lg" onClick={handleLogin}>
-            Đăng nhập với tư cách Giảng viên
+            Đăng nhập
           </button>
           <button
             className="btn-secondary"
