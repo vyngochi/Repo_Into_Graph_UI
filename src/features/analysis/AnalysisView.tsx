@@ -1,3 +1,4 @@
+import { Folder, Database } from "@phosphor-icons/react";
 import React, { useState, useEffect } from "react";
 import { useAppStore } from "../../store/useAppStore";
 
@@ -114,14 +115,7 @@ const AnalysisView = () => {
                 onClick={handleSelectFolder}
                 title="Chọn thư mục"
               >
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  width="16"
-                  height="16"
-                >
-                  <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-                </svg>
+                <Folder size={16} weight="fill" />
               </button>
             </div>
           </div>
@@ -166,56 +160,7 @@ const AnalysisView = () => {
             <div className="card">
               <div className="empty-state">
                 <div className="empty-art">
-                  <svg viewBox="0 0 80 80" width="64" height="64" fill="none">
-                    <circle
-                      cx="20"
-                      cy="20"
-                      r="8"
-                      stroke="var(--blue)"
-                      strokeWidth="2"
-                      opacity="0.4"
-                    />
-                    <circle
-                      cx="60"
-                      cy="20"
-                      r="8"
-                      stroke="var(--cyan)"
-                      strokeWidth="2"
-                      opacity="0.4"
-                    />
-                    <circle
-                      cx="40"
-                      cy="60"
-                      r="8"
-                      stroke="var(--violet)"
-                      strokeWidth="2"
-                      opacity="0.4"
-                    />
-                    <line
-                      x1="20"
-                      y1="20"
-                      x2="60"
-                      y2="20"
-                      stroke="var(--border-light)"
-                      strokeWidth="1.5"
-                    />
-                    <line
-                      x1="20"
-                      y1="20"
-                      x2="40"
-                      y2="60"
-                      stroke="var(--border-light)"
-                      strokeWidth="1.5"
-                    />
-                    <line
-                      x1="60"
-                      y1="20"
-                      x2="40"
-                      y2="60"
-                      stroke="var(--border-light)"
-                      strokeWidth="1.5"
-                    />
-                  </svg>
+                  <Database size={64} weight="duotone" color="var(--border-light)" />
                 </div>
                 <div className="empty-title">Chưa có kết quả phân tích</div>
                 <div className="empty-desc">

@@ -1,3 +1,8 @@
+import {
+  MagnifyingGlass,
+  Database,
+  TreeStructure,
+} from "@phosphor-icons/react";
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -15,6 +20,8 @@ const FeaturesView = () => {
   const [selected, setSelected] = useState<FeatureItem | null>(null);
   const [featureDetail, setFeatureDetail] = useState<unknown>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [analysisRuns, setAnalysisRuns] = useState<any[]>([]);
+  const [selectedRunId, setSelectedRunId] = useState<string>("");
   const [activeViewTab, setActiveViewTab] = useState<
     "graph" | "visual" | "mermaid"
   >("graph");
@@ -143,8 +150,17 @@ const FeaturesView = () => {
   const loadFeatures = async () => {
     setIsLoading(true);
     try {
-      const res = await window.api?.getFeatures({ baseUrl: serverUrl });
-      if (res?.success && res.status === 200) {
+      let res;
+      if (selectedRunId) {
+        res = await window.api?.getFeaturesByAnalysisRunId({
+          baseUrl: serverUrl,
+          id: selectedRunId,
+        });
+      } else {
+        res = await window.api?.getFeatures({ baseUrl: serverUrl });
+      }
+
+      if (res?.success) {
         const data = res.data;
         if (Array.isArray(data)) setFeatures(data as FeatureItem[]);
         else if (data && Array.isArray((data as any).items))
@@ -185,9 +201,28 @@ const FeaturesView = () => {
     }
   };
 
+  const loadAnalysisRuns = async () => {
+    try {
+      const res = await window.api?.getAnalysisRuns({ baseUrl: serverUrl });
+      if (res?.success) {
+        const data = res.data;
+        if (Array.isArray(data)) setAnalysisRuns(data);
+        else if (data && Array.isArray((data as any).items))
+          setAnalysisRuns((data as any).items);
+        else setAnalysisRuns([]);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
-    if (features.length === 0) loadFeatures();
+    loadAnalysisRuns();
   }, []);
+
+  useEffect(() => {
+    loadFeatures();
+  }, [selectedRunId]);
 
   const mermaidGraph =
     (featureDetail as any)?.dataFlowMermaidGraph ||
@@ -405,77 +440,100 @@ const FeaturesView = () => {
           >
             <div className="card-header">
               <div className="card-icon blue">
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  width="16"
-                  height="16"
-                >
-                  <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
-                  <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
-                </svg>
+                <TreeStructure size={16} weight="bold" />
               </div>
               <div className="card-title">Features</div>
             </div>
             <p className="card-desc">Chọn một feature để xem chi tiết.</p>
 
-            <div className="search-box" style={{ marginBottom: 12 }}>
-              <svg
-                className="search-icon"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                width="14"
-                height="14"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <input
-                type="text"
-                className="search-input"
-                placeholder="Tìm kiếm feature..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-
-            <button
-              className="btn-secondary"
+            <div
               style={{
-                width: "100%",
-                justifyContent: "center",
-                marginBottom: 12,
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                marginBottom: "12px",
               }}
-              onClick={loadFeatures}
-              disabled={isLoading}
             >
-              {isLoading ? (
-                <span
-                  className="btn-spinner"
-                  style={{
-                    borderColor: "var(--border)",
-                    borderTopColor: "var(--blue)",
-                  }}
+              <div className="search-box">
+                <MagnifyingGlass className="search-icon" size={16} weight="bold" />
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder="Tìm kiếm feature..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
                 />
-              ) : (
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  width="14"
-                  height="14"
+              </div>
+
+              <div className="form-group">
+                <label
+                  className="form-label"
+                  style={{
+                    fontSize: 11,
+                    marginBottom: 4,
+                    color: "var(--text-secondary)",
+                  }}
                 >
-                  <path
-                    fillRule="evenodd"
-                    d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
-                    clipRule="evenodd"
+                  Lọc theo Analysis Run
+                </label>
+                <select
+                  className="form-input"
+                  value={selectedRunId}
+                  onChange={(e) => setSelectedRunId(e.target.value)}
+                  style={{ fontSize: 12, padding: "6px 8px", height: "32px" }}
+                >
+                  <option value="">-- Tất cả (Mặc định) --</option>
+                  {analysisRuns.map((run) => {
+                    const id = run.id || run.Id;
+                    const name =
+                      run.repoName ||
+                      run.RepoName ||
+                      run.repositoryPath?.split(/[\\/]/).pop() ||
+                      run.RepositoryPath?.split(/[\\/]/).pop() ||
+                      id;
+                    return (
+                      <option key={id} value={id}>
+                        {name}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <button
+                className="btn-secondary"
+                style={{
+                  width: "100%",
+                  justifyContent: "center",
+                }}
+                onClick={loadFeatures}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <span
+                    className="btn-spinner"
+                    style={{
+                      borderColor: "var(--border)",
+                      borderTopColor: "var(--blue)",
+                    }}
                   />
-                </svg>
-              )}
-              Làm mới
-            </button>
+                ) : (
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    width="14"
+                    height="14"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                )}
+                Làm mới
+              </button>
+            </div>
 
             {isLoading ? (
               <div className="loading-state" style={{ padding: "24px" }}>
@@ -536,21 +594,11 @@ const FeaturesView = () => {
             >
               <div className="empty-state">
                 <div className="empty-art">
-                  <svg viewBox="0 0 64 64" width="48" height="48" fill="none">
-                    <circle
-                      cx="32"
-                      cy="32"
-                      r="20"
-                      stroke="var(--border-light)"
-                      strokeWidth="2"
-                    />
-                    <path
-                      d="M20 32h24M32 20v24"
-                      stroke="var(--border-light)"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
+                  <Database
+                    size={48}
+                    weight="duotone"
+                    color="var(--border-light)"
+                  />
                 </div>
                 <div className="empty-title">Chưa chọn Feature</div>
                 <div className="empty-desc">
