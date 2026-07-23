@@ -1,4 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import {
+  Play,
+  CaretRight,
+  ArrowsClockwise,
+  DatabaseIcon,
+  FileTextIcon,
+} from "@phosphor-icons/react";
 import { useAppStore } from "../../store/useAppStore";
 import CodeViewer from "./CodeViewer";
 
@@ -295,59 +302,11 @@ const SigmaCanvas = () => {
         >
           {/* Animated graph art */}
           <div style={{ position: "relative", width: 100, height: 100 }}>
-            <svg viewBox="0 0 100 100" width={100} height={100} fill="none">
-              <circle cx="20" cy="20" r="10" fill="#6366f1" opacity="0.7">
-                <animate
-                  attributeName="opacity"
-                  values="0.7;1;0.7"
-                  dur="1.4s"
-                  repeatCount="indefinite"
-                />
-              </circle>
-              <circle cx="80" cy="25" r="8" fill="#0ea5e9" opacity="0.6">
-                <animate
-                  attributeName="opacity"
-                  values="0.6;1;0.6"
-                  dur="1.8s"
-                  repeatCount="indefinite"
-                />
-              </circle>
-              <circle cx="50" cy="80" r="12" fill="#7c3aed" opacity="0.65">
-                <animate
-                  attributeName="opacity"
-                  values="0.65;1;0.65"
-                  dur="1.2s"
-                  repeatCount="indefinite"
-                />
-              </circle>
-              <line
-                x1="20"
-                y1="20"
-                x2="80"
-                y2="25"
-                stroke="#6366f1"
-                strokeWidth="1.5"
-                opacity="0.25"
-              />
-              <line
-                x1="20"
-                y1="20"
-                x2="50"
-                y2="80"
-                stroke="#7c3aed"
-                strokeWidth="1.5"
-                opacity="0.25"
-              />
-              <line
-                x1="80"
-                y1="25"
-                x2="50"
-                y2="80"
-                stroke="#0ea5e9"
-                strokeWidth="1.5"
-                opacity="0.25"
-              />
-            </svg>
+            <DatabaseIcon
+              size={100}
+              weight="duotone"
+              color="var(--border-light)"
+            />
           </div>
           <div style={{ textAlign: "center" }}>
             <div
@@ -496,18 +455,7 @@ const SigmaCanvas = () => {
               onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
               title="Quét lại"
             >
-              <svg
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                width="14"
-                height="14"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <ArrowsClockwise size={14} weight="bold" />
               Rescan
             </button>
           </div>
@@ -598,19 +546,7 @@ const SigmaCanvas = () => {
             gap: 6,
           }}
         >
-          <svg
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            width="12"
-            height="12"
-            style={{ color: "#6366f1" }}
-          >
-            <path
-              fillRule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-              clipRule="evenodd"
-            />
-          </svg>
+          <FileTextIcon size={16} weight="bold" />
           Click vào node để xem source code · Scroll để zoom · Kéo để di chuyển
         </div>
       )}
@@ -645,38 +581,11 @@ const SigmaCanvas = () => {
                 justifyContent: "center",
               }}
             >
-              <svg viewBox="0 0 120 120" width="52" height="52" fill="none">
-                <circle cx="20" cy="20" r="10" fill="#6366f1" opacity="0.4" />
-                <circle cx="100" cy="30" r="10" fill="#8b5cf6" opacity="0.4" />
-                <circle cx="60" cy="100" r="10" fill="#06b6d4" opacity="0.4" />
-                <line
-                  x1="20"
-                  y1="20"
-                  x2="100"
-                  y2="30"
-                  stroke="#6366f1"
-                  strokeWidth="1.5"
-                  opacity="0.25"
-                />
-                <line
-                  x1="20"
-                  y1="20"
-                  x2="60"
-                  y2="100"
-                  stroke="#8b5cf6"
-                  strokeWidth="1.5"
-                  opacity="0.25"
-                />
-                <line
-                  x1="100"
-                  y1="30"
-                  x2="60"
-                  y2="100"
-                  stroke="#06b6d4"
-                  strokeWidth="1.5"
-                  opacity="0.25"
-                />
-              </svg>
+              <DatabaseIcon
+                size={52}
+                weight="duotone"
+                color="var(--border-light)"
+              />
             </div>
             <div style={{ textAlign: "center" }}>
               <div

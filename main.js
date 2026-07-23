@@ -156,44 +156,45 @@ ipcMain.handle('api:getFeatureById', async (_event, { baseUrl, id }) => {
   }
 });
 
-// GET /api/features/:id/codeflow
+// GET /api/businesses/:id/codeflow
 ipcMain.handle('api:getCodeFlow', async (_event, { baseUrl, id }) => {
   try {
-    const result = await makeRequest('GET', `${baseUrl}/api/features/${id}/codeflow`);
+    const result = await makeRequest('GET', `${baseUrl}/api/businesses/${id}/codeflow`);
     return { success: true, ...result };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
-// GET /api/businessflows
-ipcMain.handle('api:getBusinessFlows', async (_event, { baseUrl }) => {
+// GET /api/businesses
+ipcMain.handle('api:getBusinessFlows', async (_event, { baseUrl, analysisRunId }) => {
   try {
-    const result = await makeRequest('GET', `${baseUrl}/api/businessflows`);
+    const query = analysisRunId ? `?analysisRunId=${analysisRunId}` : '';
+    const result = await makeRequest('GET', `${baseUrl}/api/businesses${query}`);
     return { success: true, ...result };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
-// GET /api/businessflows/:id
+// GET /api/businesses/:id
 ipcMain.handle('api:getBusinessFlowById', async (_event, { baseUrl, id }) => {
   try {
-    const result = await makeRequest('GET', `${baseUrl}/api/businessflows/${id}`);
+    const result = await makeRequest('GET', `${baseUrl}/api/businesses/${id}`);
     return { success: true, ...result };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
-// POST /api/QuestionGenerator/generate/from-business-flow
+// POST /api/QuestionGenerator/generate
 ipcMain.handle('api:generateQuestions', async (_event, { baseUrl, businessFlowId, numberOfQuestions, difficulty, additionalContext, fewShotExampleIds }) => {
   try {
-    const result = await makeRequest('POST', `${baseUrl}/api/QuestionGenerator/generate/from-business-flow`, {
-      businessFlowId,
+    const result = await makeRequest('POST', `${baseUrl}/api/QuestionGenerator/generate`, {
+      businessId: businessFlowId,
       numberOfQuestions,
       difficulty,
-      additionalContext: additionalContext || null,
+      description: additionalContext || null,
       fewShotExampleIds: fewShotExampleIds || null
     });
     return { success: true, ...result };
@@ -216,6 +217,126 @@ ipcMain.handle('api:getFewShots', async (_event, { baseUrl }) => {
 ipcMain.handle('api:createFewShot', async (_event, { baseUrl, payload }) => {
   try {
     const result = await makeRequest('POST', `${baseUrl}/api/fewshot`, payload);
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// GET /api/analysis-runs/:id
+ipcMain.handle('api:getAnalysisRunById', async (_event, { baseUrl, id }) => {
+  try {
+    const result = await makeRequest('GET', `${baseUrl}/api/analysis-runs/${id}`);
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// POST /api/analysis-runs
+ipcMain.handle('api:createAnalysisRun', async (_event, { baseUrl, payload }) => {
+  try {
+    const result = await makeRequest('POST', `${baseUrl}/api/analysis-runs`, payload);
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// PUT /api/analysis-runs/:id
+ipcMain.handle('api:updateAnalysisRun', async (_event, { baseUrl, id, payload }) => {
+  try {
+    const result = await makeRequest('PUT', `${baseUrl}/api/analysis-runs/${id}`, payload);
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// GET /api/features/by-analysis-run/:id
+ipcMain.handle('api:getFeaturesByAnalysisRunId', async (_event, { baseUrl, id }) => {
+  try {
+    const result = await makeRequest('GET', `${baseUrl}/api/features/by-analysis-run/${id}`);
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// GET /api/fewshot/:id
+ipcMain.handle('api:getFewShotById', async (_event, { baseUrl, id }) => {
+  try {
+    const result = await makeRequest('GET', `${baseUrl}/api/fewshot/${id}`);
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// PUT /api/fewshot/:id
+ipcMain.handle('api:updateFewShot', async (_event, { baseUrl, id, payload }) => {
+  try {
+    const result = await makeRequest('PUT', `${baseUrl}/api/fewshot/${id}`, payload);
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// DELETE /api/fewshot/:id
+ipcMain.handle('api:deleteFewShot', async (_event, { baseUrl, id }) => {
+  try {
+    const result = await makeRequest('DELETE', `${baseUrl}/api/fewshot/${id}`);
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// GET /api/businesses/:id/graph
+ipcMain.handle('api:getBusinessGraph', async (_event, { baseUrl, id }) => {
+  try {
+    const result = await makeRequest('GET', `${baseUrl}/api/businesses/${id}/graph`);
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// POST /api/WorkflowAssessment/assess-from-response
+ipcMain.handle('api:assessFromResponse', async (_event, { baseUrl, payload }) => {
+  try {
+    const result = await makeRequest('POST', `${baseUrl}/api/WorkflowAssessment/assess-from-response`, payload);
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// POST /api/WorkflowAssessment/assess-accuracy
+ipcMain.handle('api:assessAccuracy', async (_event, { baseUrl, payload }) => {
+  try {
+    const result = await makeRequest('POST', `${baseUrl}/api/WorkflowAssessment/assess-accuracy`, payload);
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// POST /api/WorkflowAssessment/assess-difficulty
+ipcMain.handle('api:assessDifficulty', async (_event, { baseUrl, payload }) => {
+  try {
+    const result = await makeRequest('POST', `${baseUrl}/api/WorkflowAssessment/assess-difficulty`, payload);
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// POST /api/QuestionGenerator/highlight-graph
+ipcMain.handle('api:highlightGraph', async (_event, { baseUrl, payload }) => {
+  try {
+    const result = await makeRequest('POST', `${baseUrl}/api/QuestionGenerator/highlight-graph`, payload);
     return { success: true, ...result };
   } catch (err) {
     return { success: false, error: err.message };

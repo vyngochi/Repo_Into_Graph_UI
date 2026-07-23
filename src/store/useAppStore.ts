@@ -3,16 +3,17 @@ import { create } from "zustand";
 // --- Types ---
 export interface FeatureItem {
     id: string;
-    featureName: string;
+    name: string;
     description?: string;
     createdAt?: string;
 }
 
 export interface BusinessFlow {
     id: string;
-    name: string;
+    businessName: string;
     description?: string;
     featureId?: string;
+    createdAt?: string;
 }
 
 export interface AnalysisResult {
@@ -51,6 +52,10 @@ interface AppState {
     toast: { message: string; type: "success" | "error" | "info" } | null;
     showToast: (message: string, type?: "success" | "error" | "info") => void;
     clearToast: () => void;
+
+    // UI state
+    isSidebarCollapsed: boolean;
+    setIsSidebarCollapsed: (v: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -77,4 +82,7 @@ export const useAppStore = create<AppState>((set) => ({
         setTimeout(() => set({ toast: null }), 3500);
     },
     clearToast: () => set({ toast: null }),
+
+    isSidebarCollapsed: false,
+    setIsSidebarCollapsed: (v) => set({ isSidebarCollapsed: v }),
 }));

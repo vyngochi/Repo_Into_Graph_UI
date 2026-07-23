@@ -26,6 +26,7 @@ interface CodeFlowParams {
 
 interface BusinessFlowsParams {
   baseUrl: string;
+  analysisRunId?: string;
 }
 
 interface BusinessFlowByIdParams {
@@ -47,6 +48,53 @@ interface FewShotsParams {
 }
 
 interface CreateFewShotParams {
+  baseUrl: string;
+  payload: any;
+}
+
+interface AnalysisRunByIdParams {
+  baseUrl: string;
+  id: string;
+}
+
+interface CreateAnalysisRunParams {
+  baseUrl: string;
+  payload: any;
+}
+
+interface UpdateAnalysisRunParams {
+  baseUrl: string;
+  id: string;
+  payload: any;
+}
+
+interface FeaturesByAnalysisRunIdParams {
+  baseUrl: string;
+  id: string;
+}
+
+interface FewShotByIdParams {
+  baseUrl: string;
+  id: string;
+}
+
+interface UpdateFewShotParams {
+  baseUrl: string;
+  id: string;
+  payload: any;
+}
+
+interface DeleteFewShotParams {
+  baseUrl: string;
+  id: string;
+}
+
+interface GetBusinessGraphParams {
+  baseUrl: string;
+  id: string;
+}
+
+interface AssessParams {
   baseUrl: string;
   payload: any;
 }
@@ -106,6 +154,18 @@ declare global {
       ) => Promise<ApiResponse>;
       getFewShots: (params: FewShotsParams) => Promise<ApiResponse>;
       createFewShot: (params: CreateFewShotParams) => Promise<ApiResponse>;
+      getAnalysisRunById: (params: AnalysisRunByIdParams) => Promise<ApiResponse>;
+      createAnalysisRun: (params: CreateAnalysisRunParams) => Promise<ApiResponse>;
+      updateAnalysisRun: (params: UpdateAnalysisRunParams) => Promise<ApiResponse>;
+      getFeaturesByAnalysisRunId: (params: FeaturesByAnalysisRunIdParams) => Promise<ApiResponse>;
+      getFewShotById: (params: FewShotByIdParams) => Promise<ApiResponse>;
+      updateFewShot: (params: UpdateFewShotParams) => Promise<ApiResponse>;
+      deleteFewShot: (params: DeleteFewShotParams) => Promise<ApiResponse>;
+      getBusinessGraph: (params: GetBusinessGraphParams) => Promise<ApiResponse>;
+      assessFromResponse: (params: AssessParams) => Promise<ApiResponse>;
+      assessAccuracy: (params: AssessParams) => Promise<ApiResponse>;
+      assessDifficulty: (params: AssessParams) => Promise<ApiResponse>;
+      highlightGraph: (params: AssessParams) => Promise<ApiResponse>;
     };
     dialog: {
       selectFolder: () => Promise<string | null>;
